@@ -47,7 +47,7 @@ LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 
 CONF.register_cli_opts([
-    cfg.BoolOpt('observe-links', default=False,
+   cfg.BoolOpt('observe-links', default=False,
                 help='observe link discovery events.'),
     cfg.BoolOpt('install-lldp-flow', default=True,
                 help='link discovery: explicitly install flow entry '

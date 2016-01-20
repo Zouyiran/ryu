@@ -21,6 +21,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
+from ryu import utils
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -65,6 +66,26 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
+        '''
+
+    ============= =========================================================
+    Attribute     Description
+    ============= =========================================================
+    buffer_id     ID assigned by datapath
+    total_len     Full length of frame
+    reason        Reason packet is being sent.
+
+                  | OFPR_NO_MATCH
+                  | OFPR_ACTION
+                  | OFPR_INVALID_TTL
+    table_id      ID of the table that was looked up
+    cookie        Cookie of the flow entry that was looked up
+    match         Instance of ``OFPMatch``
+    data          Ethernet frame
+    ============= =========================================================
+        :param ev:
+        :return:
+        '''
         # If you hit this you might want to increase
         # the "miss_send_length" of your switch
         if ev.msg.msg_len < ev.msg.total_len:
@@ -76,8 +97,23 @@ class SimpleSwitch13(app_manager.RyuApp):
         parser = datapath.ofproto_parser
         in_port = msg.match['in_port']
 
+        if msg.reason == ofproto.OFPR_NO_MATCH:
+            reason = 'NO MATCH'
+        elif msg.reason == ofproto.OFPR_ACTION:
+            reason = 'ACTION'
+        elif msg.reason == ofproto.OFPR_INVALID_TTL:
+            reason = 'INVALID TTL'
+        else:
+            reason = 'unknown'
+        self.logger.debug('OFPPacketIn received: '
+                  'buffer_id=%x total_len=%d reason=%s '
+                  'table_id=%d cookie=%d match=%s data=%s',
+                  msg.buffer_id, msg.total_len, reason,
+                  msg.table_id, msg.cookie, msg.match,
+                  utils.hex_array(msg.data))
+
         pkt = packet.Packet(msg.data)
-        eth = pkt.get_protocols(ethernet.ethernet)[0]
+        eth = pkt.get_protocols(ethernet.ethernet)[0] # return a list so list[0] to extract it
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # ignore lldp packet

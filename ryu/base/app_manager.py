@@ -293,7 +293,7 @@ class RyuApp(object):
             LOG.debug("EVENT LOST %s->%s %s",
                       self.name, name, ev.__class__.__name__)
 
-    def send_event_to_observers(self, ev, state=None):
+    def  send_event_to_observers(self, ev, state=None):
         """
         Send the specified event to all observers of this RyuApp.
         """

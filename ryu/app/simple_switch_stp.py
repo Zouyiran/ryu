@@ -53,6 +53,10 @@ class SimpleSwitchStp(app_manager.RyuApp):
         wildcards &= ~ofproto_v1_0.OFPFW_IN_PORT
         wildcards &= ~ofproto_v1_0.OFPFW_DL_DST
 
+    # def __init__(self, wildcards=None, in_port=None, dl_src=None, dl_dst=None,
+    #              dl_vlan=None, dl_vlan_pcp=None, dl_type=None, nw_tos=None,
+    #              nw_proto=None, nw_src=None, nw_dst=None,
+    #              tp_src=None, tp_dst=None, nw_src_mask=32, nw_dst_mask=32):
         match = datapath.ofproto_parser.OFPMatch(
             wildcards, in_port, 0, dst,
             0, 0, 0, 0, 0, 0, 0, 0, 0)
