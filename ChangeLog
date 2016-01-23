@@ -1,6 +1,7 @@
 CHANGES
 =======
 
+* get_link(
 * ofp_handler: Remove sending SET_CONFIG message
 * lib/ofctl: Add test cases for ofctl_v1_0
 * lib/ofctl: Add test cases for ofctl_v1_2

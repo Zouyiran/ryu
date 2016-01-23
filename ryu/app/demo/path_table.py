@@ -4,6 +4,8 @@ import logging
 import struct
 import copy
 from operator import attrgetter
+import networkx as nx
+
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, DEAD_DISPATCHER
@@ -17,8 +19,6 @@ from ryu.lib.packet import arp
 from ryu.lib import hub
 from ryu import utils
 from ryu.lib.packet import ether_types
-
-
 from ryu.topology import event, switches
 from ryu.topology.api import get_switch, get_all_switch, get_link,get_all_link
 
@@ -35,121 +35,202 @@ from ryu.topology.api import get_switch, get_all_switch, get_link,get_all_link
 #                  match=None,
 #                  instructions=[]):
 # '''
+'''
+class OFPMatch(StringifyMixin):
+    Flow Match Structure
 
-SLEEP_PERIOD = 5
-IS_UPDATE = False
+    This class is implementation of the flow match structure having
+    compose/query API.
+    There are new API and old API for compatibility. the old API is
+    supposed to be removed later.
+
+    You can define the flow match by the keyword arguments.
+    The following arguments are available.
+
+    ================ =============== ==================================
+    Argument         Value           Description
+    ================ =============== ==================================
+    in_port          Integer 32bit   Switch input port
+    in_phy_port      Integer 32bit   Switch physical input port
+    metadata         Integer 64bit   Metadata passed between tables
+    eth_dst          MAC address     Ethernet destination address
+    eth_src          MAC address     Ethernet source address
+    eth_type         Integer 16bit   Ethernet frame type
+    vlan_vid         Integer 16bit   VLAN id
+    vlan_pcp         Integer 8bit    VLAN priority
+    ip_dscp          Integer 8bit    IP DSCP (6 bits in ToS field)
+    ip_ecn           Integer 8bit    IP ECN (2 bits in ToS field)
+    ip_proto         Integer 8bit    IP protocol
+    ipv4_src         IPv4 address    IPv4 source address
+    ipv4_dst         IPv4 address    IPv4 destination address
+    tcp_src          Integer 16bit   TCP source port
+    tcp_dst          Integer 16bit   TCP destination port
+    udp_src          Integer 16bit   UDP source port
+    udp_dst          Integer 16bit   UDP destination port
+    sctp_src         Integer 16bit   SCTP source port
+    sctp_dst         Integer 16bit   SCTP destination port
+    icmpv4_type      Integer 8bit    ICMP type
+    icmpv4_code      Integer 8bit    ICMP code
+    arp_op           Integer 16bit   ARP opcode
+    arp_spa          IPv4 address    ARP source IPv4 address
+    arp_tpa          IPv4 address    ARP target IPv4 address
+    arp_sha          MAC address     ARP source hardware address
+    arp_tha          MAC address     ARP target hardware address
+    ipv6_src         IPv6 address    IPv6 source address
+    ipv6_dst         IPv6 address    IPv6 destination address
+    ipv6_flabel      Integer 32bit   IPv6 Flow Label
+    icmpv6_type      Integer 8bit    ICMPv6 type
+    icmpv6_code      Integer 8bit    ICMPv6 code
+    ipv6_nd_target   IPv6 address    Target address for ND
+    ipv6_nd_sll      MAC address     Source link-layer for ND
+    ipv6_nd_tll      MAC address     Target link-layer for ND
+    mpls_label       Integer 32bit   MPLS label
+    mpls_tc          Integer 8bit    MPLS TC
+    mpls_bos         Integer 8bit    MPLS BoS bit
+    pbb_isid         Integer 24bit   PBB I-SID
+    tunnel_id        Integer 64bit   Logical Port Metadata
+    ipv6_exthdr      Integer 16bit   IPv6 Extension Header pseudo-field
+    ================ =============== ==================================
+'''
 
 class PathTable(app_manager.RyuApp):
 
     '''
-     get switches and links, that is topology
+     get topology
      generate the path table
     '''
 
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
+
     def __init__(self, *args, **kwargs):
         super(PathTable, self).__init__(*args, **kwargs)
         self.name = "PathTable"
-        self.mac_to_port = {}
-        self.switch_ports_table = {}
-        self.link_ports_table = {}
-        self.switches = []
-        self.links = []
-        # self.switch_controller_port = {}
-        self.adjacency_matrix = {}
-        self.pre_adjacency_matrix = {}
-        self.discover_thread = hub.spawn(self.discover_topology)
+        self.mac_to_port = dict()
 
-    # topology discovery thread
+        self.switch_ports_table = dict()
+        self.link_ports_table = dict()
+        self.switches = list()
+        self.links = list()
+
+        self.adjacency_matrix = dict()
+        self.pre_adjacency_matrix = dict()
+
+        # self.discover_thread = hub.spawn(self.discover_topology)
+
+        self.SLEEP_PERIOD = 1 #seconds
+
     def discover_topology(self):
-        i = 0
+        # i = 0
+        # while True:
+        #     if i == 10:
+        #         update = self.update_topology(None)
+        #         if update:
+        #             self._show()
+        #         i = 0
+        #     hub.sleep(self.SLEEP_PERIOD)
+        #     i += 1
         while True:
-            if i == 5:
-                self._update_topology(None)
+            update = self.update_topology_handler(None)
+            if update:
+                print("update")
                 # self._show()
-                i = 0
-            hub.sleep(SLEEP_PERIOD)
-            i += 1
+                # self._get_path()
+            else:
+                print("not update")
+            hub.sleep(self.SLEEP_PERIOD)
 
-    # def _show(self):
-    #     switch_num = len(self.adjacency_matrix)
-    #     # if IS_UPDATE:
-    #     print "---------------------adjacency_matrix---------------------"
-    #     print '%10s' % ("switch"),
-    #     for i in range(1, switch_num + 1):
-    #         print '%10d' % i,
-    #     print ""
-    #     for i in self.adjacency_matrix.keys():
-    #         print '%10d' % i,
-    #         for j in self.adjacency_matrix[i].values():
-    #             print '%10.0f' % j,
-    #         print ""
 
     events = [event.EventSwitchEnter,event.EventSwitchLeave, # switch
               event.EventPortAdd,event.EventPortDelete, event.EventPortModify, # port
               event.EventLinkAdd, event.EventLinkDelete] # link
-
+    # events = [event.EventSwitchEnter,event.EventSwitchLeave]
     @set_ev_cls(events)
-    def _update_topology(self, ev):
-        switch_list = get_all_switch(self) # return a list, the type of element is ryu.topology.switches.Switch
-        # self.logger.info('type of element switch_list:%s',type(switch_list))
-        self.get_switch_ports(switch_list)
-        self.switches = self.get_switches(self.switch_ports_table)
+    def update_topology_handler(self, ev):
+        self.logger.info("update_topology_handler")
+        self._update_topology() # update topo
+        self._get_paths() # re calculate path{src:{dst:generator,dst:generator,...},src:{dst:generator,dst:generator,...},...}
 
-        link_dict = get_link(self, dpid=None) #return ryu.topology.switches.LinkState  a kind of dict: Link class -> timestamp
-        # self.logger.info('type of element link_list:%s',type(link_dict))
-        # TODO bug need to fix: get_link() is None, it is so strange
-        if link_dict:
-            print("link_dict is not None")
-        else:
-            print("link_dict is None")
-        self.get_link_ports(link_dict)
-        self.links = self.get_links(self.link_ports_table)
+    def _update_topology(self):
+        switch_list = get_all_switch(self) # return a list[ryu.topology.switches.Switch]
+        self.switch_ports_table = self._get_switch_ports(switch_list)
+        self.switches = self._get_switches(self.switch_ports_table)
 
-        self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
-        self.get_adjacency_matrix(self.switches, self.links)
-        if self.pre_adjacency_matrix != self.adjacency_matrix:
-            IS_UPDATE = True
+        link_dict = get_all_link(self) # return ryu.topology.switches.LinkState{Link class -> timestamp}
+        self.link_ports_table = self._get_link_ports(link_dict)
+        self.links = self._get_links(self.link_ports_table)
 
+        # self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
+        self._get_adjacency_matrix(self.switches, self.links)
 
-    def get_switch_ports(self,switch_list):
-        self.switch_ports_table.clear()
+        # if self.pre_adjacency_matrix != self.adjacency_matrix:
+        #     return True
+        # else:
+        #     return False
+
+    # --------------------------------------------------------------------------
+    def _get_switch_ports(self,switch_list):
+        table = dict()
         for switch in switch_list:
             dpid = switch.dp.id
-            self.switch_ports_table[dpid] = set() # dpid->port_num
-            # self.switch_ports_table.setdefault(dpid, set()) # dpid->port_num
-            # self.switch_controller_port.setdefault(dp_id, set())
+            table[dpid] = set() # dpid->port_num
             for port in switch.ports:
-                 self.switch_ports_table[dpid].add(port.port_no)
+                 table[dpid].add(port.port_no)
+        return table
 
-    def get_switches(self,switch_port_table):
+    def _get_switches(self,switch_port_table):
         return switch_port_table.keys()
 
-    def get_link_ports(self,link_dict):
-        self.link_ports_table.clear()
+    def _get_link_ports(self,link_dict):
+        table = dict()
         for link in link_dict.keys():
             src = link.src
             dst = link.dst
-            # self.link_ports_table[(src.dpid,dst.dpid)] = (src.port_no, dst.port_no)
-            # self.link_ports_table.setdefault((src.dpid,dst.dpid),(src.port_no, dst.port_no))
-            self.link_ports_table[(src.dpid,dst.dpid)] = (src.port_no, dst.port_no)
+            table[(src.dpid,dst.dpid)] = (src.port_no, dst.port_no)
+        return table
 
-    def get_links(self,link_ports_table):
+    def _get_links(self,link_ports_table):
         return link_ports_table.keys()
 
-    def get_adjacency_matrix(self,switches,links):
+    def _get_adjacency_matrix(self,switches,links):
         for src in switches:
-            print("*"*20)
-            print("src",src)
+            self.adjacency_matrix[src] = dict()
             for dst in switches:
-                print("dst",dst)
-                self.adjacency_matrix[src] = {dst: float('inf')}
+                self.adjacency_matrix[src][dst] = float('inf')
                 if src == dst:
                     self.adjacency_matrix[src][dst] = 0
                 elif (src, dst) in links:
                     self.adjacency_matrix[src][dst] = 1
 
+    def _show(self):
+        switch_num = len(self.adjacency_matrix)
+        print "---------------------adjacency_matrix---------------------"
+        print '%10s' % ("switch"),
+        for i in range(1, switch_num + 1):
+            print '%10d' % i,
+        print ""
+        for i in self.adjacency_matrix.keys():
+            print '%10d' % i,
+            for j in self.adjacency_matrix[i].values():
+                print '%10.0f' % j,
+            print ""
+
+    def _get_paths(self):
+        g = nx.Graph()
+        g.add_nodes_from(self.switches)
+        for i in self.adjacency_matrix.keys():
+            for j in self.adjacency_matrix[i].keys():
+                if self.adjacency_matrix[i][j] == 1:
+                    g.add_edge(i,j,weight=1)
+                else:
+                    continue
+        all_shortest_paths = dict()
+        for i in g.nodes():
+            all_shortest_paths[i] = dict()
+            for j in g.nodes():
+                all_shortest_paths[i][j] = nx.all_shortest_paths(g,i,j) #  return a generator
+        return all_shortest_paths
+    # --------------------------------------------------------------------------
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -188,7 +269,7 @@ class PathTable(app_manager.RyuApp):
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def _packet_in_handler(self, ev):
+    def packet_in_handler(self, ev):
         if ev.msg.msg_len < ev.msg.total_len:
             pass
             # self.logger.info("packet truncated: only %s of %s bytes",

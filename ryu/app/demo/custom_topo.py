@@ -3,7 +3,7 @@
 # TODO use BRITE to generate topology instead of manual define
 
 from mininet.net import Mininet
-from mininet.node import  OVSSwitch, UserSwitch, RemoteController
+from mininet.node import  OVSSwitch, UserSwitch, RemoteController,Ryu
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
 from mininet.link import Link, Intf, TCLink
@@ -14,10 +14,38 @@ import os
 
 class CustomTopo(Topo):
 
-    def __init__(self, **params):
-        super(CustomTopo, self).__init__(**params)
+    def __init__(self):
+        Topo.__init__( self )
         switches = list() # attention: must be switches not self.switches
         hosts = list()
+
+        # s1 = self.addSwitch('s1')
+        # s2 = self.addSwitch('s2')
+        # s3 = self.addSwitch('s3')
+        # s4 = self.addSwitch('s4')
+        # s5 = self.addSwitch('s5')
+        # s6 = self.addSwitch('s6')
+        #
+        # h1 = self.addHost('h1')
+        # h2 = self.addHost('h2')
+        # h3 = self.addHost('h3')
+        # h4 = self.addHost('h4')
+        # h5 = self.addHost('h5')
+        # h6 = self.addHost('h6')
+        #
+        # self.addLink(s1,s2)
+        # # self.addLink(s2,s3)
+        # self.addLink(s3,s1)
+        # self.addLink(s1,s4)
+        # self.addLink(s2,s5)
+        # self.addLink(s3,s6)
+        #
+        # self.addLink(s4,h1)
+        # self.addLink(s4,h2)
+        # self.addLink(s5,h3)
+        # self.addLink(s5,h4)
+        # self.addLink(s6,h5)
+        # self.addLink(s6,h6)
 
         # add Switches
         switches.append(self.addSwitch('s1'))
@@ -28,28 +56,28 @@ class CustomTopo(Topo):
         switches.append(self.addSwitch('s6'))
 
         # add Links between switches
-        self.addLink(switches[0],switches[1],bw=10)
-        self.addLink(switches[1],switches[2],bw=10)
-        self.addLink(switches[2],switches[0],bw=10)
-        self.addLink(switches[0],switches[3],bw=5)
-        self.addLink(switches[1],switches[4],bw=5)
-        self.addLink(switches[2],switches[5],bw=5)
+        self.addLink(switches[0],switches[1])
+        # self.addLink(switches[1],switches[2])
+        self.addLink(switches[2],switches[0])
+        self.addLink(switches[0],switches[3])
+        self.addLink(switches[1],switches[4])
+        self.addLink(switches[2],switches[5])
 
         # add Hosts
-        hosts.append(self.addHost('h1',mac='00:00:00:00:00:01'))
-        hosts.append(self.addHost('h2',mac='00:00:00:00:00:02'))
-        hosts.append(self.addHost('h3',mac='00:00:00:00:00:03'))
-        hosts.append(self.addHost('h4',mac='00:00:00:00:00:04'))
-        hosts.append(self.addHost('h5',mac='00:00:00:00:00:05'))
-        hosts.append(self.addHost('h6',mac='00:00:00:00:00:06'))
+        hosts.append(self.addHost('h1'))
+        hosts.append(self.addHost('h2'))
+        hosts.append(self.addHost('h3'))
+        hosts.append(self.addHost('h4'))
+        hosts.append(self.addHost('h5'))
+        hosts.append(self.addHost('h6'))
 
         # add Linkes between switches and hosts
-        self.addLink(switches[3],hosts[0],bw=1)
-        self.addLink(switches[3],hosts[1],bw=1)
-        self.addLink(switches[4],hosts[2],bw=1)
-        self.addLink(switches[4],hosts[3],bw=1)
-        self.addLink(switches[5],hosts[4],bw=1)
-        self.addLink(switches[5],hosts[5],bw=1)
+        self.addLink(switches[3],hosts[0])
+        self.addLink(switches[3],hosts[1])
+        self.addLink(switches[4],hosts[2])
+        self.addLink(switches[4],hosts[3])
+        self.addLink(switches[5],hosts[4])
+        self.addLink(switches[5],hosts[5])
 
 class CustomSwitch(OVSSwitch):
 
@@ -61,10 +89,11 @@ class CustomSwitch(OVSSwitch):
         # self.stp = True
 
 
+topos = {'custom':(lambda: CustomTopo())}
 
 CONTROLLER_IP = "127.0.0.1"
 CONTROLLER_PORT = 6633
-
+#
 # TODO mininet> sh ovs-vsctl set bridge s1 protocols=OpenFlow13
 def main():
     logging.debug("Topo creating...")
@@ -72,7 +101,7 @@ def main():
 
     logging.debug("Mininet starting...")
     net = Mininet(topo=topo,
-                  switch=CustomSwitch,
+                  switch=OVSSwitch,
                   controller=None,
                   cleanup=True,
                   link=TCLink)

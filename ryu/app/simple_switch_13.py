@@ -91,11 +91,11 @@ class SimpleSwitch13(app_manager.RyuApp):
         if ev.msg.msg_len < ev.msg.total_len:
             self.logger.debug("packet truncated: only %s of %s bytes",
                               ev.msg.msg_len, ev.msg.total_len)
-        msg = ev.msg
+        msg = ev.msg # ofproto_v1_3_parser.py OFPPacketIn(MsgBase)
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-        in_port = msg.match['in_port']
+        in_port = msg.match['in_port'] # ofproto_v1_3_parser.py OFPMatch(StringifyMixin)
 
         if msg.reason == ofproto.OFPR_NO_MATCH:
             reason = 'NO MATCH'
@@ -124,7 +124,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+        self.logger.info("packet in dpid:%s, src:%s, dst:%s, in_port:%s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
