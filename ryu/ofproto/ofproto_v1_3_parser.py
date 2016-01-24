@@ -2752,7 +2752,7 @@ class OFPInstructionActions(OFPInstruction):
 
     ``type`` attribute corresponds to ``type_`` parameter of __init__.
     """
-    def __init__(self, type_, actions=None, len_=None):
+    def __init__(self, type_, actions=None, l_=None):
         super(OFPInstructionActions, self).__init__()
         self.type = type_
         for a in actions:

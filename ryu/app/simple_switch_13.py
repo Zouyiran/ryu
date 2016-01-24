@@ -21,7 +21,6 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
-from ryu import utils
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -66,65 +65,46 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-        '''
-
-    ============= =========================================================
-    Attribute     Description
-    ============= =========================================================
-    buffer_id     ID assigned by datapath
-    total_len     Full length of frame
-    reason        Reason packet is being sent.
-
-                  | OFPR_NO_MATCH
-                  | OFPR_ACTION
-                  | OFPR_INVALID_TTL
-    table_id      ID of the table that was looked up
-    cookie        Cookie of the flow entry that was looked up
-    match         Instance of ``OFPMatch``
-    data          Ethernet frame
-    ============= =========================================================
-        :param ev:
-        :return:
-        '''
         # If you hit this you might want to increase
         # the "miss_send_length" of your switch
         if ev.msg.msg_len < ev.msg.total_len:
             self.logger.debug("packet truncated: only %s of %s bytes",
                               ev.msg.msg_len, ev.msg.total_len)
-        msg = ev.msg # ofproto_v1_3_parser.py OFPPacketIn(MsgBase)
+        msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-        in_port = msg.match['in_port'] # ofproto_v1_3_parser.py OFPMatch(StringifyMixin)
-
-        if msg.reason == ofproto.OFPR_NO_MATCH:
-            reason = 'NO MATCH'
-        elif msg.reason == ofproto.OFPR_ACTION:
-            reason = 'ACTION'
-        elif msg.reason == ofproto.OFPR_INVALID_TTL:
-            reason = 'INVALID TTL'
-        else:
-            reason = 'unknown'
-        self.logger.debug('OFPPacketIn received: '
-                  'buffer_id=%x total_len=%d reason=%s '
-                  'table_id=%d cookie=%d match=%s data=%s',
-                  msg.buffer_id, msg.total_len, reason,
-                  msg.table_id, msg.cookie, msg.match,
-                  utils.hex_array(msg.data))
+        in_port = msg.match['in_port']
 
         pkt = packet.Packet(msg.data)
-        eth = pkt.get_protocols(ethernet.ethernet)[0] # return a list so list[0] to extract it
+        eth = pkt.get_protocols(ethernet.ethernet)[0]
+
+        # ETH_TYPE_IP = 0x0800
+        # ETH_TYPE_ARP = 0x0806
+        # ETH_TYPE_8021Q = 0x8100
+        # ETH_TYPE_IPV6 = 0x86dd
+        # ETH_TYPE_SLOW = 0x8809
+        # ETH_TYPE_MPLS = 0x8847
+        # ETH_TYPE_8021AD = 0x88a8
+        # ETH_TYPE_LLDP = 0x88cc
+        # ETH_TYPE_8021AH = 0x88e7
+        # ETH_TYPE_IEEE802_3 = 0x05dc
+        # ETH_TYPE_CFM = 0x8902
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # ignore lldp packet
+            self.logger.info(" ETH_TYPE_LLDP:0x%08x", ether_types.ETH_TYPE_LLDP)
             return
+        else:
+            self.logger.info(" eth.ethertype:0x%08x", eth.ethertype)
+
         dst = eth.dst
         src = eth.src
 
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in dpid:%s, src:%s, dst:%s, in_port:%s", dpid, src, dst, in_port)
+        self.logger.info("packet in dpid:%s src:%s dst:%s in_port:%s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port

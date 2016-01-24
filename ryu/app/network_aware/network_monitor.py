@@ -22,13 +22,17 @@ class Network_Monitor(app_manager.RyuApp):
         super(Network_Monitor, self).__init__(*args, **kwargs)
 
         self.datapaths = {}
+
         self.port_stats = {}
         self.port_speed = {}
+
         self.flow_stats = {}
         self.flow_speed = {}
-        # {"port":{dpid:{port:body,..},..},"flow":{dpid:body,..}
-        self.stats = {}
+
+        self.stats = {} # {"port":{dpid:{port:body,..},..},"flow":{dpid:body,..}
+
         self.port_link = {}  # {dpid:{port_no:(config,state,cur),..},..}
+
         self.monitor_thread = hub.spawn(self._monitor)
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
@@ -140,6 +144,16 @@ class Network_Monitor(app_manager.RyuApp):
                             self.port_link[dpid][stat.port_no][0],
                             self.port_link[dpid][stat.port_no][1]))
             print '\n'
+
+
+        # req = parser.OFPFlowStatsRequest(datapath)
+        # datapath.send_msg(req)
+        #
+        # req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_ANY)
+        # datapath.send_msg(req)
+        #
+        # req = parser.OFPPortDescStatsRequest(datapath, 0)
+        # datapath.send_msg(req)
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply_handler(self, ev):

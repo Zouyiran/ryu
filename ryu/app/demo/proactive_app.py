@@ -84,16 +84,18 @@ class OFPMatch(StringifyMixin):
     ipv6_nd_target   IPv6 address    Target address for ND
     ipv6_nd_sll      MAC address     Source link-layer for ND
     ipv6_nd_tll      MAC address     Target link-layer for ND
+
     mpls_label       Integer 32bit   MPLS label
     mpls_tc          Integer 8bit    MPLS TC
     mpls_bos         Integer 8bit    MPLS BoS bit
+
     pbb_isid         Integer 24bit   PBB I-SID
     tunnel_id        Integer 64bit   Logical Port Metadata
     ipv6_exthdr      Integer 16bit   IPv6 Extension Header pseudo-field
     ================ =============== ==================================
 '''
 
-class PathTable(app_manager.RyuApp):
+class PathFinder(app_manager.RyuApp):
 
     '''
      get topology
@@ -104,8 +106,7 @@ class PathTable(app_manager.RyuApp):
 
 
     def __init__(self, *args, **kwargs):
-        super(PathTable, self).__init__(*args, **kwargs)
-        self.name = "PathTable"
+        super(PathFinder, self).__init__(*args, **kwargs)
         self.mac_to_port = dict()
 
         self.switch_ports_table = dict()
@@ -116,40 +117,28 @@ class PathTable(app_manager.RyuApp):
         self.adjacency_matrix = dict()
         self.pre_adjacency_matrix = dict()
 
-        # self.discover_thread = hub.spawn(self.discover_topology)
+        self.path_table = dict()
+
+        self.discover_thread = hub.spawn(self.discover_topology)
 
         self.SLEEP_PERIOD = 1 #seconds
 
     def discover_topology(self):
-        # i = 0
-        # while True:
-        #     if i == 10:
-        #         update = self.update_topology(None)
-        #         if update:
-        #             self._show()
-        #         i = 0
-        #     hub.sleep(self.SLEEP_PERIOD)
-        #     i += 1
         while True:
-            update = self.update_topology_handler(None)
-            if update:
-                print("update")
-                # self._show()
-                # self._get_path()
-            else:
-                print("not update")
             hub.sleep(self.SLEEP_PERIOD)
-
-
-    events = [event.EventSwitchEnter,event.EventSwitchLeave, # switch
-              event.EventPortAdd,event.EventPortDelete, event.EventPortModify, # port
-              event.EventLinkAdd, event.EventLinkDelete] # link
-    # events = [event.EventSwitchEnter,event.EventSwitchLeave]
-    @set_ev_cls(events)
-    def update_topology_handler(self, ev):
-        self.logger.info("update_topology_handler")
-        self._update_topology() # update topo
-        self._get_paths() # re calculate path{src:{dst:generator,dst:generator,...},src:{dst:generator,dst:generator,...},...}
+            self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
+            self._update_topology()
+            if self.pre_adjacency_matrix != self.adjacency_matrix:
+                print("topo update")
+            else:
+                print("topo not update")
+                # self.path_table = self._get_paths()
+                # for src in self.path_table.keys():
+                #     print("src:",src)
+                #     for dst in self.path_table[src].keys():
+                #         print("dst:",dst)
+                #         gen = self.path_table[src][dst]
+                #         print(gen)
 
     def _update_topology(self):
         switch_list = get_all_switch(self) # return a list[ryu.topology.switches.Switch]
@@ -160,13 +149,7 @@ class PathTable(app_manager.RyuApp):
         self.link_ports_table = self._get_link_ports(link_dict)
         self.links = self._get_links(self.link_ports_table)
 
-        # self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
-        self._get_adjacency_matrix(self.switches, self.links)
-
-        # if self.pre_adjacency_matrix != self.adjacency_matrix:
-        #     return True
-        # else:
-        #     return False
+        self.adjacency_matrix = self._get_adjacency_matrix(self.switches, self.links)
 
     # --------------------------------------------------------------------------
     def _get_switch_ports(self,switch_list):
@@ -193,14 +176,34 @@ class PathTable(app_manager.RyuApp):
         return link_ports_table.keys()
 
     def _get_adjacency_matrix(self,switches,links):
+        graph = dict()
         for src in switches:
-            self.adjacency_matrix[src] = dict()
+            graph[src] = dict()
             for dst in switches:
-                self.adjacency_matrix[src][dst] = float('inf')
+                graph[src][dst] = float('inf')
                 if src == dst:
-                    self.adjacency_matrix[src][dst] = 0
+                    graph[src][dst] = 0
                 elif (src, dst) in links:
-                    self.adjacency_matrix[src][dst] = 1
+                    graph[src][dst] = 1
+        return graph
+
+    def _get_paths(self):
+        if self.switches and self.links:
+            g = nx.Graph()
+            g.add_nodes_from(self.switches)
+            for i in self.adjacency_matrix.keys():
+                for j in self.adjacency_matrix[i].keys():
+                    if self.adjacency_matrix[i][j] == 1:
+                        g.add_edge(i,j,weight=1)
+                    else:
+                        continue
+            all_shortest_paths = dict()
+            for i in g.nodes():
+                all_shortest_paths[i] = dict()
+                for j in g.nodes():
+                    #  nx.all_shortest_paths() return a generator
+                    all_shortest_paths[i][j] = [path for path in nx.all_shortest_paths(g,i,j) ] # [[],[],[],...]
+            return all_shortest_paths
 
     def _show(self):
         switch_num = len(self.adjacency_matrix)
@@ -214,23 +217,16 @@ class PathTable(app_manager.RyuApp):
             for j in self.adjacency_matrix[i].values():
                 print '%10.0f' % j,
             print ""
-
-    def _get_paths(self):
-        g = nx.Graph()
-        g.add_nodes_from(self.switches)
-        for i in self.adjacency_matrix.keys():
-            for j in self.adjacency_matrix[i].keys():
-                if self.adjacency_matrix[i][j] == 1:
-                    g.add_edge(i,j,weight=1)
-                else:
-                    continue
-        all_shortest_paths = dict()
-        for i in g.nodes():
-            all_shortest_paths[i] = dict()
-            for j in g.nodes():
-                all_shortest_paths[i][j] = nx.all_shortest_paths(g,i,j) #  return a generator
-        return all_shortest_paths
     # --------------------------------------------------------------------------
+
+    # events = [event.EventSwitchEnter,event.EventSwitchLeave, # switch
+    #           event.EventPortAdd,event.EventPortDelete, event.EventPortModify, # port
+    #           event.EventLinkAdd, event.EventLinkDelete] # link
+    events = [event.EventSwitchEnter,event.EventSwitchLeave]
+    @set_ev_cls(events)
+    def update_topology_handler(self, ev):
+        self._update_topology()
+
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -245,8 +241,9 @@ class PathTable(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
+        # install table-miss flow entry
         match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, #  send to the controller
                                           ofproto.OFPCML_NO_BUFFER)]
 
         self.add_flow(datapath, 0, match, actions)
@@ -296,8 +293,13 @@ class PathTable(app_manager.RyuApp):
         #           msg.table_id, msg.cookie, msg.match,
         #           utils.hex_array(msg.data))
 
+        # eth_type = pkt.get_protocols(ethernet.ethernet)[0].ethertype
+
+
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0] # return a list so list[0] to extract it
+        arp_pkt = pkt.get_protocol(arp.arp)
+        ip_pkt = pkt.get_protocol(ipv4.ipv4)
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # ignore lldp packet
@@ -337,4 +339,3 @@ class PathTable(app_manager.RyuApp):
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
-
