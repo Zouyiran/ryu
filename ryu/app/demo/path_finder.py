@@ -109,8 +109,10 @@ class PathFinder(app_manager.RyuApp):
         super(PathFinder, self).__init__(*args, **kwargs)
         self.mac_to_port = dict()
 
-        self.switch_ports_table = dict()
-        self.link_ports_table = dict()
+        self.switches_mac_to_port = dict()
+        self.hosts_mac_to_port = dict()
+        self.links_dpid_to_port = dict()
+
         self.switches = list()
         self.links = list()
 
@@ -119,7 +121,7 @@ class PathFinder(app_manager.RyuApp):
 
         self.path_table = dict()
 
-        self.discover_thread = hub.spawn(self.discover_topology)
+        # self.discover_thread = hub.spawn(self.discover_topology)
 
         self.SLEEP_PERIOD = 1 #seconds
 
@@ -148,51 +150,101 @@ class PathFinder(app_manager.RyuApp):
                 #         gen = self.path_table[src][dst]
                 #         print(gen)
 
+    # --------------------------------------------------------------------------
     def _update_topology(self):
         switch_list = get_all_switch(self) # return a list[ryu.topology.switches.Switch]
-        self.switch_ports_table = self._get_switch_ports(switch_list)
-        self.switches = self._get_switches(self.switch_ports_table) # dpid
+        self.switches_mac_to_port = self._get_switches_mac_to_port(switch_list)
+        # for switch in self.switch_ports_table.keys():
+        #     print("dpid:",switch)
+        #     for mac in self.switch_ports_table[switch].keys():
+        #         print("switch_mac:",mac,'->',"switch_port:",self.switch_ports_table[switch][mac])
+
+        host_list = get_all_host(self) # return a list[ryu.topology.switches.Host]
+        self.hosts_mac_to_port = self._get_hosts_mac_to_port(host_list)
+        # for dpid in self.host_port_to_mac.keys():
+        #     print("dpid:",dpid)
+        #     for mac in self.host_port_to_mac[dpid].keys():
+        #         print("host_port:",mac,'->',"switch_port:",self.host_port_to_mac[dpid][mac])
 
         link_dict = get_all_link(self) # return ryu.topology.switches.LinkState{Link class -> timestamp}
-        self.link_ports_table = self._get_link_ports(link_dict)
-        self.links = self._get_links(self.link_ports_table)
+        self.links_dpid_to_port = self._get_links_dpid_to_port(link_dict)
 
+        self.switches = self._get_switches(switch_list) # dpid
+        self.links = self._get_links(self.links_dpid_to_port) #(src.dpid,dst.dpid)
         self.adjacency_matrix = self._get_adjacency_matrix(self.switches, self.links)
 
-    # --------------------------------------------------------------------------
-    def _get_switch_ports(self,switch_list):
+    def _get_hosts_mac_to_port(self,host_list):
+        '''
+        ('dpid:', 4)
+        ('host_port:', '00:00:00:00:00:02', '->', 'switch_port:', 3)
+        ('host_port:', '00:00:00:00:00:01', '->', 'switch_port:', 2)
+        ('dpid:', 5)
+        ('host_port:', '00:00:00:00:00:03', '->', 'switch_port:', 2)
+        ('host_port:', '00:00:00:00:00:04', '->', 'switch_port:', 3)
+        ('dpid:', 6)
+        ('host_port:', '00:00:00:00:00:06', '->', 'switch_port:', 3)
+        ('host_port:', '00:00:00:00:00:05', '->', 'switch_port:', 2)
+        '''
+        table = dict()
+        for host in host_list:
+            host_mac = host.mac
+            host_port = host.port
+            dpid = host_port.dpid
+            table.setdefault(dpid,{})
+            table[dpid][host_mac] = host_port.port_no
+        return table
+
+    def _get_switches_mac_to_port(self,switch_list):
+        '''
+        ('dpid:', 1)
+        ('switch_mac:', '62:87:4c:5f:06:8a', '->', 'switch_port:', 1)
+        ('switch_mac:', 'e6:2e:5e:f4:a8:dd', '->', 'switch_port:', 3)
+        ('switch_mac:', 'a6:05:2f:9a:13:53', '->', 'switch_port:', 2)
+        ('dpid:', 2)
+        ('switch_mac:', 'c2:fb:7c:5b:6e:9e', '->', 'switch_port:', 2)
+        ('switch_mac:', 'ca:3c:70:29:7d:50', '->', 'switch_port:', 1)
+        ('dpid:', 3)
+        ('switch_mac:', '0e:de:48:aa:a6:97', '->', 'switch_port:', 1)
+        ('switch_mac:', '02:fe:77:8d:25:ba', '->', 'switch_port:', 2)
+        ('dpid:', 4)
+        ('switch_mac:', '46:70:97:3e:48:d6', '->', 'switch_port:', 2)
+        ('switch_mac:', 'fa:61:db:70:c3:7f', '->', 'switch_port:', 3)
+        ('switch_mac:', '52:57:78:55:ff:0f', '->', 'switch_port:', 1)
+        ('dpid:', 5)
+        ('switch_mac:', '9a:a0:88:f9:98:0d', '->', 'switch_port:', 2)
+        ('switch_mac:', 'aa:d3:f5:9a:cf:90', '->', 'switch_port:', 1)
+        ('switch_mac:', '76:ab:e3:f1:d4:7c', '->', 'switch_port:', 3)
+        ('dpid:', 6)
+        ('switch_mac:', '22:70:ce:59:26:a2', '->', 'switch_port:', 2)
+        ('switch_mac:', 'd2:d6:53:e9:bc:84', '->', 'switch_port:', 3)
+        ('switch_mac:', '1e:cd:25:1d:cc:6f', '->', 'switch_port:', 1)
+        '''
         table = dict()
         for switch in switch_list:
             dpid = switch.dp.id
-            print(dpid)
-            table[dpid] = set() # dpid->port_num
-            for port in switch.ports:
-                 table[dpid].add(port.port_no)
-            print(table[dpid])
+            table.setdefault(dpid,{})
+            ports = switch.ports
+            for port in ports:
+                table[dpid][port.hw_addr] =  port.port_no
         return table
 
-    def _get_switches(self,switch_port_table):
-        return switch_port_table.keys()
-
-    def _get_link_ports(self,link_dict):
+    def _get_links_dpid_to_port(self,link_dict):
         table = dict()
+        print("link_dict:",len(link_dict))
         for link in link_dict.keys():
             src = link.src #ryu.topology.switches.Port
             dst = link.dst
             table[(src.dpid,dst.dpid)] = (src.port_no, dst.port_no)
         return table
 
+    def _get_switches(self,switch_list):
+        dpid_list = list()
+        for switch in switch_list:
+            dpid_list.append(switch.dp.id)
+        return dpid_list
+
     def _get_links(self,link_ports_table):
         return link_ports_table.keys()
-
-    def _get_mac_to_port(self, link_dict):
-        mac_to_port = dict()
-        for link in link_dict.keys():
-            for port in [link.src,link.dst]:
-                dpid = port.dpid
-                mac_to_port.setdefault(dpid, {})
-                mac_to_port[dpid][port.hw_addr] = dpid.port_no
-        return mac_to_port
 
     def _get_adjacency_matrix(self,switches,links):
         graph = dict()
@@ -216,7 +268,7 @@ class PathFinder(app_manager.RyuApp):
                         g.add_edge(i,j,weight=1)
                     else:
                         continue
-            all_shortest_paths = dict()
+            all_shortest_paths = dict() #{1:{1:[],2:[],3:[],...},2:{1:[],2:[],...},...}
             for i in g.nodes():
                 all_shortest_paths[i] = dict()
                 for j in g.nodes():
@@ -245,9 +297,7 @@ class PathFinder(app_manager.RyuApp):
     # events = [event.EventSwitchEnter,event.EventSwitchLeave]
     @set_ev_cls(events)
     def update_topology_handler(self, ev):
-        # print(ev)
         self._update_topology()
-
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -264,7 +314,7 @@ class PathFinder(app_manager.RyuApp):
 
         # install table-miss flow entry
         match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, #  send to the controller
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
 
         self.add_flow(datapath, 0, match, actions)
@@ -285,44 +335,58 @@ class PathFinder(app_manager.RyuApp):
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
-
-
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
+        '''
+        msg:
+        ['_TYPE', '__class__', '__delattr__', '__dict__', '__doc__',
+        '__format__', '__getattribute__', '__hash__', '__init__',
+        '__module__', '__new__', '__reduce__', '__reduce_ex__',
+        '__repr__', '__setattr__', '__sizeof__', '__str__',
+        '__subclasshook__', '__weakref__', '_base_attributes',
+        '_class_prefixes', '_class_suffixes', '_decode_value',
+        '_encode_value', '_get_decoder', '_get_default_decoder',
+        '_get_default_encoder', '_get_encoder', '_get_type',
+        '_is_class', '_restore_args', '_serialize_body',
+        '_serialize_header', '_serialize_pre', 'buf',
+        'buffer_id', 'cls_from_jsondict_key', 'cls_msg_type',
+        'cookie', 'data', 'datapath', 'from_jsondict', 'match',
+        'msg_len', 'msg_type', 'obj_from_jsondict', 'parser',
+        'reason', 'serialize', 'set_buf', 'set_classes',
+        'set_headers', 'set_xid', 'stringify_attrs',
+        'table_id', 'to_jsondict', 'total_len', 'version', 'xid']
+            print("msg_type:",msg.msg_type)
+
+        ether_types:
+        # ETH_TYPE_IP = 0x0800
+        # ETH_TYPE_ARP = 0x0806
+        # ETH_TYPE_8021Q = 0x8100
+        # ETH_TYPE_IPV6 = 0x86dd
+        # ETH_TYPE_SLOW = 0x8809
+        # ETH_TYPE_MPLS = 0x8847
+        # ETH_TYPE_8021AD = 0x88a8
+        # ETH_TYPE_LLDP = 0x88cc
+        # ETH_TYPE_8021AH = 0x88e7
+        # ETH_TYPE_IEEE802_3 = 0x05dc
+        # ETH_TYPE_CFM = 0x8902
+        :param ev:
+        :return:
+        '''
         # if ev.msg.msg_len < ev.msg.total_len:
             # self.logger.info("packet truncated: only %s of %s bytes",
             #                   ev.msg.msg_len, ev.msg.total_len)
         msg = ev.msg
-
         # self.logger.info('OFPPacketIn received: '
         #           'buffer_id=%x total_len=%d reason=%s '
         #           'table_id=%d cookie=%d match=%s data=%s',
         #           msg.buffer_id, msg.total_len, reason,
         #           msg.table_id, msg.cookie, msg.match,
         #           utils.hex_array(msg.data))
-
-
- # ['_TYPE', '__class__', '__delattr__', '__dict__', '__doc__',
- #  '__format__', '__getattribute__', '__hash__', '__init__',
- #  '__module__', '__new__', '__reduce__', '__reduce_ex__',
- #  '__repr__', '__setattr__', '__sizeof__', '__str__',
- #  '__subclasshook__', '__weakref__', '_base_attributes',
- #  '_class_prefixes', '_class_suffixes', '_decode_value',
- #  '_encode_value', '_get_decoder', '_get_default_decoder',
- #  '_get_default_encoder', '_get_encoder', '_get_type',
- #  '_is_class', '_restore_args', '_serialize_body',
- #  '_serialize_header', '_serialize_pre', 'buf',
- #  'buffer_id', 'cls_from_jsondict_key', 'cls_msg_type',
- #  'cookie', 'data', 'datapath', 'from_jsondict', 'match',
- #  'msg_len', 'msg_type', 'obj_from_jsondict', 'parser',
- #  'reason', 'serialize', 'set_buf', 'set_classes',
- #  'set_headers', 'set_xid', 'stringify_attrs',
- #  'table_id', 'to_jsondict', 'total_len', 'version', 'xid']
- #        print("msg_type:",msg.msg_type)
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-        in_port = msg.match['in_port']
+        in_port = msg.match['in_port'] # OFPMatch
+        #if eth_dst is in host addr then pack with mpls
 
         if msg.reason == ofproto.OFPR_NO_MATCH:
             reason = 'NO MATCH'
@@ -335,47 +399,8 @@ class PathFinder(app_manager.RyuApp):
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0] # return a list so list[0] to extract it
-        # arp_pkt = pkt.get_protocol(arp.arp)
-        # ip_pkt = pkt.get_protocol(ipv4.ipv4)
-
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            # ignore lldp packet
+            print("ether_types is ETH_TYPE_LLDP")
             return
-        dst = eth.dst
-        src = eth.src
-        if src in self.MAC_LIST and dst in self.MAC_LIST:
-            pass
 
-        dpid = datapath.id
-        self.mac_to_port.setdefault(dpid, {})
-
-        # self.logger.info("packet in -> dpid:%s src:%s dst:%s in_port:%s", dpid, src, dst, in_port)
-
-        # learn a mac address to avoid FLOOD next time.
-        self.mac_to_port[dpid][src] = in_port
-
-        if dst in self.mac_to_port[dpid]:
-            out_port = self.mac_to_port[dpid][dst]
-        else:
-            out_port = ofproto.OFPP_FLOOD
-
-        actions = [parser.OFPActionOutput(out_port)]
-
-        # install a flow to avoid packet_in next time
-        if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
-            # verify if we have a valid buffer_id, if yes avoid to send both
-            # flow_mod & packet_out
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                return
-            else:
-                self.add_flow(datapath, 1, match, actions)
-        data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
-
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=data)
-        datapath.send_msg(out)
 

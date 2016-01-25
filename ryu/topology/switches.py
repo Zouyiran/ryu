@@ -165,7 +165,7 @@ class Host(object):
     # This is data class passed by EventHostXXX
     def __init__(self, mac, port):
         super(Host, self).__init__()
-        self.port = port
+        self.port = port #  Port
         self.mac = mac
         self.ipv4 = []
         self.ipv6 = []
