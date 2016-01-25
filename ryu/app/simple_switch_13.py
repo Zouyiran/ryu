@@ -102,6 +102,23 @@ class SimpleSwitch13(app_manager.RyuApp):
         src = eth.src
 
         dpid = datapath.id
+
+        print(">>>>>>>>>packet_in<<<<<<<<<<<<<")
+        dst = eth.dst
+        print("dst:",dst)
+        src = eth.src
+        print("src:",src)
+        dpid = datapath.id
+        print("dpid:",dpid)
+        # if dpid in self.hosts_mac_to_port.keys():
+        #     if src in self.hosts_mac_to_port[dpid].keys():
+        #         print("packet_in host testing>>>","src:",src,'->',"dts:",dst)
+        #     if dst == 'ff:ff:ff:ff:ff:ff':
+        #         print('dst is :ff:ff:ff:ff:ff:ff')
+        #         print(' eth.ethertype:0x%08x' % eth.ethertype)
+        if dst in["00:00:00:00:00:01","00:00:00:00:00:02"]:
+            print("goal:",dst)
+            print(' eth.ethertype:0x%08x' % eth.ethertype)
         self.mac_to_port.setdefault(dpid, {})
 
         self.logger.info("packet in dpid:%s src:%s dst:%s in_port:%s", dpid, src, dst, in_port)

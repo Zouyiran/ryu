@@ -38,10 +38,6 @@ class Shortest_Route(app_manager.RyuApp):
         # links   :(src_dpid,dst_dpid)->(src_port,dst_port)
         self.link_to_port = self.network_aware.link_to_port
 
-
-
-
-
         # {sw :[host1_ip,host2_ip,host3_ip,host4_ip]}
         self.access_table = self.network_aware.access_table
 
