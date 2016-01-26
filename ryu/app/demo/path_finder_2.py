@@ -12,6 +12,7 @@ from ryu.controller.handler import MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3, ofproto_v1_0, ofproto_protocol
+from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ipv4
@@ -125,11 +126,12 @@ class PathFinder(app_manager.RyuApp):
         self.differ_path_table = list()
 
         self.id_to_dp = dict()
+        self.datapaths= dict()
 
         # self.discover_thread = hub.spawn(self.discover_topology)
 
         self.SLEEP_PERIOD = 1 #seconds
-        self.PRIORITY = 2
+        self.PRIORITY = OFP_DEFAULT_PRIORITY
 
 
         self.MAC_LIST = ["00:00:00:00:00:01",
@@ -160,21 +162,24 @@ class PathFinder(app_manager.RyuApp):
     # --------------------------------------------------------------------------
     def _update_topology(self):
         switch_list = get_all_switch(self) # return a list[ryu.topology.switches.Switch]
-        self.switches_mac_to_port = self._get_switches_mac_to_port(switch_list)
+        if switch_list:
+            self.switches_mac_to_port = self._get_switches_mac_to_port(switch_list)
         # for switch in self.switches_mac_to_port.keys():
         #     print("dpid:",switch)
         #     for mac in self.switches_mac_to_port[switch].keys():
         #         print("switch_mac:",mac,'->',"switch_port:",self.switches_mac_to_port[switch][mac])
 
         host_list = get_all_host(self) # return a list[ryu.topology.switches.Host]
-        self.hosts_mac_to_port = self._get_hosts_mac_to_port(host_list)
+        if host_list:
+            self.hosts_mac_to_port = self._get_hosts_mac_to_port(host_list)
         # for dpid in self.hosts_mac_to_port.keys():
         #     print("dpid:",dpid)
         #     for mac in self.hosts_mac_to_port[dpid].keys():
         #         print("host_port:",mac,'->',"switch_port:",self.hosts_mac_to_port[dpid][mac])
 
         link_dict = get_all_link(self) # return ryu.topology.switches.LinkState{Link class -> timestamp}
-        self.links_dpid_to_port = self._get_links_dpid_to_port(link_dict)
+        if link_dict:
+            self.links_dpid_to_port = self._get_links_dpid_to_port(link_dict)
 
         self.switches = self._get_switches(switch_list) # dpid
         self.links = self._get_links(self.links_dpid_to_port) #(src.dpid,dst.dpid)
@@ -281,7 +286,10 @@ class PathFinder(app_manager.RyuApp):
                         continue
                     if g.has_node(i) and g.has_node(j):
                         for each in nx.all_shortest_paths(g,i,j):
-                            all_shortest_paths.append(each)
+                            try:
+                                all_shortest_paths.append(each)
+                            except nx.NetworkXNoPath:
+                                print("catch nx.NetworkXNoPath")
             return all_shortest_paths
 
     def _show(self):
@@ -313,22 +321,39 @@ class PathFinder(app_manager.RyuApp):
         return differ_path_table
     # --------------------------------------------------------------------------
 
-    events = [event.EventSwitchEnter,event.EventSwitchLeave, # switch
-              event.EventPortAdd,event.EventPortDelete, event.EventPortModify, # port
-              event.EventLinkAdd, event.EventLinkDelete,# link
-              event.EventHostAdd] # host
-    # events = [event.EventSwitchEnter,event.EventSwitchLeave]
+    @set_ev_cls(ofp_event.EventOFPStateChange,
+                [MAIN_DISPATCHER, DEAD_DISPATCHER])
+    def _state_change_handler(self, ev):
+        print("_state_change_handler")
+        datapath = ev.datapath
+        if ev.state == MAIN_DISPATCHER:
+            if not datapath.id in self.datapaths: # register datapath: 0000000000000004
+                self.logger.info('register datapath: %016x', datapath.id)
+                self.datapaths[datapath.id] = datapath
+        elif ev.state == DEAD_DISPATCHER:
+            if datapath.id in self.datapaths:
+                self.logger.info('unregister datapath: %016x', datapath.id)
+                del self.datapaths[datapath.id]
+
+
+    # events = [event.EventSwitchEnter,event.EventSwitchLeave, # switch
+    #           event.EventPortAdd,event.EventPortDelete, event.EventPortModify, # port
+    #           event.EventLinkAdd, event.EventLinkDelete,# link
+    #           event.EventHostAdd] # host
+    events = [event.EventSwitchEnter,event.EventSwitchLeave]
     @set_ev_cls(events)
     def update_topology_handler(self, ev):
+        print("update_topology_handler")
+        dp = ev.switch.dp
         self._update_topology()
         self.pre_path_table = copy.deepcopy(self.path_table)
         self.path_table = self._get_paths()
         self.differ_path_table = self._get_differ_path_table()
         if self.differ_path_table :
             print("differ_path_table")
-            self.install_flow(self.differ_path_table,self.id_to_dp)
+            self.install_flow(self.differ_path_table,dp)
 
-    def install_flow(self,path_table,id_to_dp):
+    def install_flow(self,path_table,dp):
         self.PRIORITY += 1
         for path in path_table:#path:[1,2,3,5]
             num = len(path)
@@ -339,34 +364,38 @@ class PathFinder(app_manager.RyuApp):
                 for i in range(num):
                     label_str += str(path[i])
                 mpls_label = int(label_str)
-                print(mpls_label)
+                # print(mpls_label)
                 mpls_tc = 5
                 mpls_bos = 1
                 for i in range(num):
                     if i == 0 or i == num - 1:
                         pass
                     else:
-                        print("dpid:",path[i])
-                        datapath = id_to_dp[path[i]]
-                        print(datapath)
+                        # print("dpid:",path[i])
+                        datapath = dp
+                        # print(datapath)
                         ofproto = datapath.ofproto
                         parser = datapath.ofproto_parser
                         match = parser.OFPMatch(mpls_label=mpls_label)
+
+                        # match = parser.OFPMatch(in_port=2, ipv4_src="0.0.0.0")
+
                         # self.switches_mac_to_port = dict()
                         # self.hosts_mac_to_port = dict()
                         # self.links_dpid_to_port = dict()
                         # table[(src.dpid,dst.dpid)] = (src.port_no, dst.port_no)
                         if (path[i],path[i+1]) in self.links_dpid_to_port.keys():
-                            print(path[i],path[i+1])
+                            # print(path[i],path[i+1])
                             port_tuple = self.links_dpid_to_port[(path[i],path[i+1])]
-                            print(port_tuple)
+                            # print(port_tuple)
                             actions = [parser.OFPActionOutput(port_tuple[0])]
                             # def add_flow(self, datapath, priority, match, actions, buffer_id=None):
-                            self.add_flow(datapath, self.PRIORITY, match, actions)
+                            # self.add_flow(datapath, 100, 1000, self.PRIORITY, match, actions)
 
 
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, [CONFIG_DISPATCHER, MAIN_DISPATCHER])
     def switch_features_handler(self, ev):
+        print('switch_features_handler')
         msg = ev.msg
         # self.logger.info('OFPSwitchFeatures received: '
         #               'datapath_id=0x%016x n_buffers=%d '
@@ -384,11 +413,25 @@ class PathFinder(app_manager.RyuApp):
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
 
-        self.add_flow(datapath, 0, match, actions)
+        self.add_flow(datapath,0, 0, 0, match, actions)
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+    def add_flow(self, datapath, idle_timeout, hard_timeout, priority, match, actions, buffer_id=None):
+
+        '''
+        OFPFlowMod
+        datapath, cookie=0, cookie_mask=0, table_id=0,
+                 command=ofproto.OFPFC_ADD,
+                 idle_timeout=0, hard_timeout=0,
+                 priority=ofproto.OFP_DEFAULT_PRIORITY,
+                 buffer_id=ofproto.OFP_NO_BUFFER,
+                 out_port=0, out_group=0, flags=0,
+                 match=None,
+                 instructions=[]
+        '''
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
+        if hard_timeout == 1000:
+            print("install flow hard_time")
 
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
@@ -401,9 +444,11 @@ class PathFinder(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
+        print("send_msg")
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
+        # print("_packet_in_handler")
         if ev.msg.msg_len < ev.msg.total_len:
             pass
             # self.logger.debug("packet truncated: only %s of %s bytes",
@@ -447,10 +492,10 @@ class PathFinder(app_manager.RyuApp):
             # verify if we have a valid buffer_id, if yes avoid to send both
             # flow_mod & packet_out
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                self.add_flow(datapath, 100,100, 1, match, actions, msg.buffer_id)
                 return
             else:
-                self.add_flow(datapath, 1, match, actions)
+                self.add_flow(datapath, 100, 100, 1, match, actions)
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
