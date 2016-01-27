@@ -26,7 +26,6 @@ class CustomTopo(Topo):
         switches.append(self.addSwitch('s4'))
         switches.append(self.addSwitch('s5'))
         switches.append(self.addSwitch('s6'))
-        # switches.append(self.addSwitch('s7'))
 
         # add Hosts
         hosts.append(self.addHost('h1',mac='00:00:00:00:00:01'))
@@ -44,7 +43,6 @@ class CustomTopo(Topo):
         self.addLink(switches[0],switches[3])
         self.addLink(switches[1],switches[4])
         self.addLink(switches[2],switches[5])
-        # self.addLink(switches[5],switches[6])
 
         # add Linkes between switches and hosts
         self.addLink(switches[3],hosts[0], bw=1)

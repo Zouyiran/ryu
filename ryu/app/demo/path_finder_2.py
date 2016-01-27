@@ -167,7 +167,7 @@ class PathFinder(app_manager.RyuApp):
         # for switch in self.switches_mac_to_port.keys():
         #     print("dpid:",switch)
         #     for mac in self.switches_mac_to_port[switch].keys():
-        #         print("switch_mac:",mac,'->',"switch_port:",self.switches_mac_to_port[switch][mac])
+        #         print("switch_mac:"`,mac,'->',"switch_port:",self.switches_mac_to_port[switch][mac])
 
         host_list = get_all_host(self) # return a list[ryu.topology.switches.Host]
         if host_list:

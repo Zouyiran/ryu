@@ -107,7 +107,7 @@ supported_ofctl = {
 # POST /stats/flowentry/add
 #
 # modify all matching flow entries
-# POST /stats/flowentry/modify
+# self.logger.info(" ETH_TYPE_LLDP:0x%08x", ether_types.ETH_TYPE_LLDP)
 #
 # modify flow entry strictly matching wildcards and priority
 # POST /stats/flowentry/modify_strict
