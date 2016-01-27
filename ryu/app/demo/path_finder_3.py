@@ -127,7 +127,6 @@ class PathFinder(app_manager.RyuApp):
                 "priority": 1111,
                 "match":{
                     "in_port":in_port,
-                    "tunnel_id":12121
                 },
                 "actions":[{"type":"OUTPUT",
                             "port":out_port}]
