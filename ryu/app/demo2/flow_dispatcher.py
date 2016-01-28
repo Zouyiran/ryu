@@ -28,7 +28,7 @@ class FlowDispatcher(object):
         data = {"dpid":dpid,
                 "table_id":0,
                 "priority": priority,
-                "match":{match}, # match {}
+                "match":match, # match {}
                 "actions":actions # actions []
                 }
         requests.post(url=self.IP+uri,data=str(data))

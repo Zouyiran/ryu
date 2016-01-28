@@ -23,13 +23,16 @@ from ryu.topology.api import get_switch, get_all_switch, get_link,get_all_link,g
 from flow_dispatcher import FlowDispatcher
 
 
-class PathFinder(object):
+class PathFinder(app_manager.RyuApp):
     '''
     Path Finder:
     find topology and get ovs information
     '''
+    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super(PathFinder, self).__init__(*args, **kwargs)
+        self.name = "PathFinder"
         # {dpid:{mac:port,mac:port,...},dpid:{mac:port,mac:port,...},...}
         self.dpid_mac_to_port = dict()
         # [dpid,dpid,...]
@@ -51,7 +54,7 @@ class PathFinder(object):
         # {(dpid,dpid):[[dpid,dpid,dpid],[dpid,dpid,dpid,dpid]], (dpid,dpid):[[dpid,dpid,dpid],[dpid,dpid,dpid,dpid]]}
         self.path_table = dict()
 
-        self.SLEEP_PERIOD = 5 #seconds
+        self.SLEEP_PERIOD = 8 #seconds
 
         self.PRIORITY = OFP_DEFAULT_PRIORITY
 
@@ -123,7 +126,6 @@ class PathFinder(object):
                                 }
                         actions = [{"type":"OUTPUT","port":out_port}]
                         self.flowDispatcher.add_flow_rest(dpid, priority, match, actions)
-
 
 
     def _update_topology(self):
