@@ -28,7 +28,21 @@ import json
 
 import requests
 
-
+'''
+ETH_TYPE_IP = 0x0800
+ETH_TYPE_ARP = 0x0806
+ETH_TYPE_8021Q = 0x8100
+ETH_TYPE_IPV6 = 0x86dd
+ETH_TYPE_SLOW = 0x8809
+ETH_TYPE_MPLS = 0x8847
+ETH_TYPE_8021AD = 0x88a8
+ETH_TYPE_LLDP = 0x88cc
+ETH_TYPE_8021AH = 0x88e7
+ETH_TYPE_IEEE802_3 = 0x05dc
+ETH_TYPE_CFM = 0x8902
+:param ev:
+:return:
+'''
 
 
 class PathFinder(app_manager.RyuApp):
@@ -71,8 +85,13 @@ class PathFinder(app_manager.RyuApp):
         #start a topology discover thread
         self.discover_thread = hub.spawn(self.discover_topology)
 
+        self.access_table = dict()
+
         self.SLEEP_PERIOD = 10 #seconds
+
         self.PRIORITY = OFP_DEFAULT_PRIORITY
+        self.DL_TYPE = "2048" # ip
+        self.ICMP_PROTO = "1"
 
     def install_flows(self, traffic_table):
         uri = "/stats/flowentry/add"
@@ -88,13 +107,10 @@ class PathFinder(app_manager.RyuApp):
                 pass
             elif traffic_len == 1:# belongs to a same dpid
                 dpid = traffic[0]
-                print("install_flows:",dpid)
-                dpid = traffic[0]
                 in_port = self.hostmac_to_port[src_host]
-                print("in_port:",in_port)
                 out_port = self.hostmac_to_port[dst_host]
-                print("out_port:",out_port)
                 data = self._pack_data(dpid, self.PRIORITY,in_port, out_port, src_host, dst_host)
+                # data =
                 requests.post(url=IP+uri,data=str(data))
             # else: # several dpid
             #     for i in range(traffic_len):
@@ -122,11 +138,13 @@ class PathFinder(app_manager.RyuApp):
     def _pack_data(self, dpid, priority, in_port, out_port, src_host, dst_host):
         data = {"dpid":dpid,
                 "table_id":0,
-                "idle_timeout":100,
-                "hard_timeout":100,
-                "priority": 1111,
+                "priority": priority,
                 "match":{
+                    "dl_type":ether_types.ETH_TYPE_IP,
                     "in_port":in_port,
+                    "mpls_label":29,
+                    "mpls_tc":5,
+                    "mpls_bos":1
                 },
                 "actions":[{"type":"OUTPUT",
                             "port":out_port}]
@@ -140,6 +158,7 @@ class PathFinder(app_manager.RyuApp):
             # self.pre_host_obj = copy.deepcopy(self.host_obj)
             self._update_topology()
             self._update_hosts()
+
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('discover_topology thread: TOPO or HOSTS update...')
                 # self._show_matrix()
@@ -163,6 +182,13 @@ class PathFinder(app_manager.RyuApp):
             #     self.install_flows(self.traffic_table)
             # else:
             #     self.logger.info('discover_topology thread: TOPO and HOSTS NOT update...')
+
+    def _show_host(self):
+            for each in self.hostmac_to_dpid:
+                print("each:",each,"->","dpid:",self.hostmac_to_dpid[each])
+
+            for each in self.hostmac_to_port:
+                print("each:",each,"->","port:",self.hostmac_to_port[each])
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
@@ -348,6 +374,47 @@ class PathFinder(app_manager.RyuApp):
                 elif (src, dst) in links:
                     graph[src][dst] = 1
         return graph
+
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    def _packet_in_handler(self, ev):
+        msg = ev.msg
+        datapath = msg.datapath
+        dpid = datapath.id
+
+        in_port = msg.match['in_port']
+        pkt = packet.Packet(msg.data)
+
+        arp_pkt = pkt.get_protocol(arp.arp)
+        ip_pkt = pkt.get_protocol(ipv4.ipv4)
+
+        if arp_pkt:
+            arp_src_ip = arp_pkt.src_ip
+            print("arp_src_ip:",arp_src_ip)
+            arp_dst_ip = arp_pkt.dst_ip
+            print("arp_dst_ip:",arp_dst_ip)
+            # record the access info
+            self.register_access_info(dpid, in_port, arp_src_ip)
+
+    def register_access_info(self,dpid,in_port, ip):
+        self.access_table.setdefault(dpid,{})
+        port_to_ip = self.access_table[dpid]
+        if in_port in port_to_ip.keys():
+            if port_to_ip[in_port] == ip:
+                pass
+        else:
+            port_to_ip[in_port] = ip
+        for dpid in self.access_table:
+            print("dpid:",dpid)
+            for each in self.access_table[dpid]:
+                print(each,"->",self.access_table[dpid][each])
+
+
+        if in_port in self.access_table[dpid]:
+            if (dpid, in_port) in self.access_table:
+                if ip != self.access_table[(dpid, in_port)]:
+                    self.access_table[(dpid, in_port)] = ip
+            else:
+                self.access_table[(dpid, in_port)] = ip
 
     # @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     # def _packet_in_handler(self, ev):

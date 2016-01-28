@@ -21,6 +21,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
+import array
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -65,6 +66,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
+        # print("packet_in_handler>>>>>>>>>")
         # If you hit this you might want to increase
         # the "miss_send_length" of your switch
         if ev.msg.msg_len < ev.msg.total_len:
@@ -93,8 +95,19 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # ignore lldp packet
+            # the topology.switches.Switches can handle the LLDP packet
             self.logger.info(" ETH_TYPE_LLDP:0x%08x", ether_types.ETH_TYPE_LLDP)
             return
+        pp = packet.Packet(array.array('B',msg.data)) # B: unsigned char 1Byte
+        for p in pp:
+            try:
+                p_name = p.protocol_name
+                if p_name == "icmp":
+                    print(p)
+                if p_name == 'arp':
+                    print(p)
+            except:
+                pass
 
 
         dst = eth.dst

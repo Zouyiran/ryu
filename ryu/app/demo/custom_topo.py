@@ -86,7 +86,7 @@ def main():
     topo = CustomTopo()
     net = Mininet(topo=topo,
                   link=TCLink,#"TCLink:Link with symmetric TC interfaces configured via opts"
-                  switch=OVSSwitch,
+                  switch=CustomSwitch,
                   controller=None,
                   cleanup=True)
     net.addController( name='controller',
@@ -99,12 +99,12 @@ def main():
 #    ip: IP address as a string
 #    prefixLen: prefix length, e.g. 8 for /8 or 16M addrs
 #    kwargs: any additional arguments for intf.setIP"""
-    net.getNodeByName("h1").setIP(ip='172.16.40.11',prefixLen=24)
-    net.getNodeByName("h2").setIP(ip='172.16.40.12',prefixLen=24)
-    net.getNodeByName("h3").setIP(ip='172.16.50.11',prefixLen=24)
-    net.getNodeByName("h4").setIP(ip='172.16.50.12',prefixLen=24)
-    net.getNodeByName("h5").setIP(ip='172.16.60.11',prefixLen=24)
-    net.getNodeByName("h6").setIP(ip='172.16.60.12',prefixLen=24)
+#     net.getNodeByName("h1").setIP(ip='172.16.40.11',prefixLen=24)
+#     net.getNodeByName("h2").setIP(ip='172.16.40.12',prefixLen=24)
+#     net.getNodeByName("h3").setIP(ip='172.16.50.11',prefixLen=24)
+#     net.getNodeByName("h4").setIP(ip='172.16.50.12',prefixLen=24)
+#     net.getNodeByName("h5").setIP(ip='172.16.60.11',prefixLen=24)
+#     net.getNodeByName("h6").setIP(ip='172.16.60.12',prefixLen=24)
 
     net.start()
     CLI(net)

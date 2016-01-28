@@ -38,11 +38,7 @@ class Shortest_Route(app_manager.RyuApp):
         # links   :(src_dpid,dst_dpid)->(src_port,dst_port)
         self.link_to_port = self.network_aware.link_to_port
 
-
-
-
-
-        # {sw :[host1_ip,host2_ip,host3_ip,host4_ip]}
+        # {(sw,port) :[host1_ip,host2_ip,host3_ip,host4_ip]}
         self.access_table = self.network_aware.access_table
 
         # dpid->port_num (ports without link)
@@ -74,6 +70,9 @@ class Shortest_Route(app_manager.RyuApp):
                                 hard_timeout=hard_timeout,
                                 match=match, instructions=inst)
         dp.send_msg(mod)
+
+        # flow_info = (eth_type, ip_src, ip_dst, in_port)
+        # self.install_flow(path, flow_info, msg.buffer_id, msg.data)
 
     def install_flow(self, path, flow_info, buffer_id, data):
         '''
