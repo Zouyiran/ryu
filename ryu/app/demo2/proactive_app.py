@@ -128,35 +128,35 @@ class ProactiveApp(app_manager.RyuApp):
             return
 
 #---------------- mac learning ----------------
-        # src_mac = eth.src
-        # dst_mac = eth.dst
-        # self.mac_to_port.setdefault(dpid, {})
-        # # learn a mac address to avoid FLOOD next time.
-        # self.mac_to_port[dpid][src_mac] = in_port
-        # if dst_mac in self.mac_to_port[dpid]:
-        #     out_port = self.mac_to_port[dpid][dst_mac]
-        # else:
-        #     out_port = ofproto.OFPP_FLOOD
-        #
-        # # for dpid in self.mac_to_port:
-        # #     print("dpid:",dpid)
-        # #     for each in self.mac_to_port[dpid]:
-        # #         print("mac:",each,"->","port:",self.mac_to_port[dpid][each])
-        #
-        # actions = [parser.OFPActionOutput(out_port)]
-        # # add a flow to avoid packet_in next time
-        # if out_port != ofproto.OFPP_FLOOD:
-        #     match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
-        #     # verify if we have a valid buffer_id, if yes avoid to send both flow_mod & packet_out
-        #     if buffer_id != ofproto.OFP_NO_BUFFER:
-        #         self.flowDispatcher.add_flow(datapath, 1, match, actions, buffer_id)
-        #         return
-        #     else:
-        #         self.flowDispatcher.add_flow(datapath, 1, match, actions)
-        # data = None
-        # if buffer_id == ofproto.OFP_NO_BUFFER:
-        #     data = msg.data
-        # self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
+        src_mac = eth.src
+        dst_mac = eth.dst
+        self.mac_to_port.setdefault(dpid, {})
+        # learn a mac address to avoid FLOOD next time.
+        self.mac_to_port[dpid][src_mac] = in_port
+        if dst_mac in self.mac_to_port[dpid]:
+            out_port = self.mac_to_port[dpid][dst_mac]
+        else:
+            out_port = ofproto.OFPP_FLOOD
+
+        # for dpid in self.mac_to_port:
+        #     print("dpid:",dpid)
+        #     for each in self.mac_to_port[dpid]:
+        #         print("mac:",each,"->","port:",self.mac_to_port[dpid][each])
+
+        actions = [parser.OFPActionOutput(out_port)]
+        # add a flow to avoid packet_in next time
+        if out_port != ofproto.OFPP_FLOOD:
+            match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
+            # verify if we have a valid buffer_id, if yes avoid to send both flow_mod & packet_out
+            if buffer_id != ofproto.OFP_NO_BUFFER:
+                self.flowDispatcher.add_flow(datapath, 1, match, actions, buffer_id)
+                return
+            else:
+                self.flowDispatcher.add_flow(datapath, 1, match, actions)
+        data = None
+        if buffer_id == ofproto.OFP_NO_BUFFER:
+            data = msg.data
+        self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
 #---------------- mac learning ----------------
 
 #----------------  arp ip learning ----------------
@@ -164,7 +164,16 @@ class ProactiveApp(app_manager.RyuApp):
             if hasattr(p,'protocol_name'):
                 proto_name = p.protocol_name
                 if proto_name == 'arp':
-                    print('........arp.......')
+                    print("*****arp*********")
+                if proto_name == 'tcp':
+                    print("*******tcp*******")
+                print(proto_name)
+        print''
+                # if proto_name == 'arp':
+                #     print('........arp.......')
+                # if proto_name == "icmp":
+                #     print('........icmp.......')
+
                     # src_ip = p.src_ip #p.src_ip
                     # print("src_ip:",src_ip)
                     # dst_ip = p.dst_ip #p.dst_ip
@@ -199,91 +208,91 @@ class ProactiveApp(app_manager.RyuApp):
 #----------------  arp ip learning ----------------
 
 #----------------  mpls ----------------
-        src_mac = eth.src
-        dst_mac = eth.dst
-        host_mac = self.hostmac_to_dpid.keys() # [mac, mac, mac,...]
-        if src_mac in host_mac and dst_mac in host_mac:
-            print("**********host to host******")
-            src_dpid = self.hostmac_to_dpid[src_mac]
-            dst_dpid = self.hostmac_to_dpid[dst_mac]
-            if src_dpid == dst_dpid:# belong to same dpid
-                out_port = self.hostmac_to_port[dst_mac]
-                actions = [parser.OFPActionOutput(out_port)]
-                match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
-                if buffer_id != ofproto.OFP_NO_BUFFER:
-                    self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions, buffer_id)
-                    return
-                else:
-                    self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions)
-                data = None
-                if buffer_id == ofproto.OFP_NO_BUFFER:
-                    data = msg.data
-                self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
-            elif (src_dpid,dst_dpid) in self.path_table.keys(): # must in it, "if" judge is no need
-                paths = self.path_table[(src_dpid,dst_dpid)]
-                path_num = len(paths)
-                if path_num == 0:# unreachable
-                    print(src_mac,"->",dst_mac,": unreachable")
-                    return
-                elif path_num == 1: # has only one path
-                    path = paths[0]
-                else:# several paths
-                    # pick a one path,default pick the first path
-                    path = paths[0]
-
-                if len(path) == 2: # src_mac -> dpid_1 -> dpid_2 -> dst_mac
-                    if dpid == path[0]: # dpid_1
-                        out_port = self.links_dpid_to_port[(path[0],path[1])][0]
-                    else:# dpid == path[1]: # dpid_2
-                        out_port = self.hostmac_to_port[dst_mac]
-                    actions = [parser.OFPActionOutput(out_port)]
-                    match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
-                    if buffer_id != ofproto.OFP_NO_BUFFER:
-                        self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions, buffer_id)
-                        return
-                    else:
-                        self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions)
-                    data = None
-                    if buffer_id == ofproto.OFP_NO_BUFFER:
-                        data = msg.data
-                    self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
-
-                elif len(path) > 2: # src_mac -> dpid_1 -> dpid_2 -> dpid_3...-> dst_mac
-                    if dpid == path[0]: # the first dpid
-                        out_port = self.links_dpid_to_port[(path[0],path[1])][0]
-                        label_str = ''
-                        for i in path:
-                            label_str += str(i)
-                        mpls_proto = mpls.mpls(label=int(label_str), exp=5, bsb=1, ttl=255)
-
-                        protocol_list = list()
-                        for p in pkt:
-                            protocol_list.append(p) #[ethernet, ipv4, tcp,..]
-
-                        pack = packet.Packet()
-                        pack.add_protocol(protocol_list[0])
-                        pack.add_protocol(mpls_proto)
-                        for i in range(1,len(protocol_list)):
-                            pack.add_protocol(protocol_list[i])
-                        pack.serialize()
-                        data = pack.data
-                        self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
-                    elif dpid == path[-1]: # the last dpid
-                        out_port = self.hostmac_to_port[dst_mac]
-
-                        protocol_list = list()
-                        for p in pkt:
-                            protocol_list.append(p) #[ethernet, mpls, ipv4, tcp,..]
-
-                        pack = packet.Packet()
-                        pack.add_protocol(protocol_list[0])
-                        for i in range(2,len(protocol_list)):
-                            pack.add_protocol(protocol_list[i])
-                        pack.serialize()
-                        data = pack.data
-                        self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
-                    else:
-                        print("not path[0] and not path[-1], so this is a BUG!!!")
+        # src_mac = eth.src
+        # dst_mac = eth.dst
+        # host_mac = self.hostmac_to_dpid.keys() # [mac, mac, mac,...]
+        # if src_mac in host_mac and dst_mac in host_mac:
+        #     print("**********host to host******")
+        #     src_dpid = self.hostmac_to_dpid[src_mac]
+        #     dst_dpid = self.hostmac_to_dpid[dst_mac]
+        #     if src_dpid == dst_dpid:# belong to same dpid
+        #         out_port = self.hostmac_to_port[dst_mac]
+        #         actions = [parser.OFPActionOutput(out_port)]
+        #         match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
+        #         if buffer_id != ofproto.OFP_NO_BUFFER:
+        #             self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions, buffer_id)
+        #             return
+        #         else:
+        #             self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions)
+        #         data = None
+        #         if buffer_id == ofproto.OFP_NO_BUFFER:
+        #             data = msg.data
+        #         self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
+        #     elif (src_dpid,dst_dpid) in self.path_table.keys(): # must in it, "if" judge is no need
+        #         paths = self.path_table[(src_dpid,dst_dpid)]
+        #         path_num = len(paths)
+        #         if path_num == 0:# unreachable
+        #             print(src_mac,"->",dst_mac,": unreachable")
+        #             return
+        #         elif path_num == 1: # has only one path
+        #             path = paths[0]
+        #         else:# several paths
+        #             # pick a one path,default pick the first path
+        #             path = paths[0]
+        #
+        #         if len(path) == 2: # src_mac -> dpid_1 -> dpid_2 -> dst_mac
+        #             if dpid == path[0]: # dpid_1
+        #                 out_port = self.links_dpid_to_port[(path[0],path[1])][0]
+        #             else:# dpid == path[1]: # dpid_2
+        #                 out_port = self.hostmac_to_port[dst_mac]
+        #             actions = [parser.OFPActionOutput(out_port)]
+        #             match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
+        #             if buffer_id != ofproto.OFP_NO_BUFFER:
+        #                 self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions, buffer_id)
+        #                 return
+        #             else:
+        #                 self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions)
+        #             data = None
+        #             if buffer_id == ofproto.OFP_NO_BUFFER:
+        #                 data = msg.data
+        #             self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
+        #
+        #         elif len(path) > 2: # src_mac -> dpid_1 -> dpid_2 -> dpid_3...-> dst_mac
+        #             if dpid == path[0]: # the first dpid
+        #                 out_port = self.links_dpid_to_port[(path[0],path[1])][0]
+        #                 label_str = ''
+        #                 for i in path:
+        #                     label_str += str(i)
+        #                 mpls_proto = mpls.mpls(label=int(label_str), exp=5, bsb=1, ttl=255)
+        #
+        #                 protocol_list = list()
+        #                 for p in pkt:
+        #                     protocol_list.append(p) #[ethernet, ipv4, tcp,..]
+        #
+        #                 pack = packet.Packet()
+        #                 pack.add_protocol(protocol_list[0])
+        #                 pack.add_protocol(mpls_proto)
+        #                 for i in range(1,len(protocol_list)):
+        #                     pack.add_protocol(protocol_list[i])
+        #                 pack.serialize()
+        #                 data = pack.data
+        #                 self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
+        #             elif dpid == path[-1]: # the last dpid
+        #                 out_port = self.hostmac_to_port[dst_mac]
+        #
+        #                 protocol_list = list()
+        #                 for p in pkt:
+        #                     protocol_list.append(p) #[ethernet, mpls, ipv4, tcp,..]
+        #
+        #                 pack = packet.Packet()
+        #                 pack.add_protocol(protocol_list[0])
+        #                 for i in range(2,len(protocol_list)):
+        #                     pack.add_protocol(protocol_list[i])
+        #                 pack.serialize()
+        #                 data = pack.data
+        #                 self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
+        #             else:
+        #                 print("not path[0] and not path[-1], so this is a BUG!!!")
 #----------------  mpls ----------------
 
     @set_ev_cls(ofp_event.EventOFPStateChange,[MAIN_DISPATCHER, DEAD_DISPATCHER])
@@ -314,7 +323,7 @@ class ProactiveApp(app_manager.RyuApp):
             self._update_hosts() # TODO
             # when adjacency matrix is update,then update the path_table
             if self.pre_adjacency_matrix != self.adjacency_matrix:
-                self.logger.info('discover_topology thread: TOPO  UPDATE...')
+                self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
                 self.path_table = self._get_path_table(self.adjacency_matrix)
                 self.pre_install_flow(self.path_table)
 
@@ -523,3 +532,10 @@ class ProactiveApp(app_manager.RyuApp):
             print("each:",each,"->","dpid:",self.hostmac_to_dpid[each])
         for each in self.hostmac_to_port:
             print("each:",each,"->","port:",self.hostmac_to_port[each])
+
+    def _show_link_dpid_to_port(self):
+        print "---------------------show_link_dpid_to_port---------------------"
+        for pair in self.links_dpid_to_port:
+            print("dpid_pair:",pair)
+            print("port:",self.links_dpid_to_port[pair])
+
