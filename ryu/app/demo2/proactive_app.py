@@ -13,7 +13,7 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib import hub
-from ryu.lib.packet import packet, ether_types
+from ryu.lib.packet import packet, ethernet, ether_types
 from ryu.topology.api import get_switch, get_all_switch, get_link,get_all_link,get_all_host,get_host
 
 from flow_dispatcher import FlowDispatcher
@@ -62,6 +62,9 @@ class ProactiveApp(app_manager.RyuApp):
         self.dpid_to_dp = dict()
         self.discover_thread = hub.spawn(self.path_find)
 
+        self.ip_to_port = dict()
+        self.mac_to_port = dict()
+
     # install table-miss flow entry
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -95,12 +98,12 @@ class ProactiveApp(app_manager.RyuApp):
         :return:
         '''
         msg = ev.msg
+        buffer_id = msg.buffer_id
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         dpid = datapath.id
         in_reason = msg.reason
-
         if in_reason == ofproto.OFPR_NO_MATCH:
             reason = 'NO_MATCH'
         elif in_reason == ofproto.OFPR_ACTION:
@@ -109,97 +112,84 @@ class ProactiveApp(app_manager.RyuApp):
             reason = 'INVALID_TTL'
         else:
             reason = 'UNKNOWN'
+        in_port = msg.match['in_port']
 
-        pkt = packet.Packet(array.array('B',msg.data))
+        if ev.msg.msg_len < ev.msg.total_len:
+            self.logger.debug("packet truncated: only %s of %s bytes",
+                              ev.msg.msg_len, ev.msg.total_len)
 
+        pkt = packet.Packet(array.array('B',msg.data)) # ()
+        eth = pkt.get_protocols(ethernet.ethernet)[0]
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+            # ignore lldp packet
+            # the topology.switches.Switches can handle the LLDP packet
+            # for LLDP working, must --observe-links
+            return
+
+#---------------- mac learning ----------------
+        src_mac = eth.src
+        dst_mac = eth.dst
+        self.mac_to_port.setdefault(dpid, {})
+        # learn a mac address to avoid FLOOD next time.
+        self.mac_to_port[dpid][src_mac] = in_port
+        if dst_mac in self.mac_to_port[dpid]:
+            out_port = self.mac_to_port[dpid][dst_mac]
+        else:
+            out_port = ofproto.OFPP_FLOOD
+        actions = [parser.OFPActionOutput(out_port)]
+        # add a flow to avoid packet_in next time
+        if out_port != ofproto.OFPP_FLOOD:
+            match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
+            # verify if we have a valid buffer_id, if yes avoid to send both flow_mod & packet_out
+            if buffer_id != ofproto.OFP_NO_BUFFER:
+                self.flowDispatcher.add_flow(datapath, 1, match, actions, buffer_id)
+                return
+            else:
+                self.flowDispatcher.add_flow(datapath, 1, match, actions)
+        data = None
+        if buffer_id == ofproto.OFP_NO_BUFFER:
+            data = msg.data
+        self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
+#---------------- mac learning ----------------
+
+#----------------  arp ip learning ----------------
         for p in pkt.protocols:# p is a object of ryu.lib.packet.ethernet.ethernet
             if hasattr(p,'protocol_name'):
                 proto_name = p.protocol_name
-                if proto_name == 'ethernet':
-                    print('ethernet')
-                    print(p.ethertype,p.dst,p.src)
                 if proto_name == 'arp':
-                    print("arp")
-                    # arp('00:00:00:00:00:01', '00:00:00:00:00:00', '10.0.0.1', '10.0.0.2')
-                if proto_name == 'icmp':
-                    print('icmp')
-        print ''
-                # elif proto_name == "ipv4":
-                #     print("ipv4...")
-                #     print(dpid)
-                #     print(msg.match["in_port"])
+                    print('........arp.......')
+                    src_ip = p.src_ip #p.src_ip
+                    print("src_ip:",src_ip)
+                    dst_ip = p.dst_ip #p.dst_ip
+                    print("dst_ip:",dst_ip)
+                    self.ip_to_port.setdefault(dpid, {})
+                    self.ip_to_port[dpid][src_ip] = in_port
+                    if dst_ip in self.ip_to_port[dpid]:
+                        out_port = self.ip_to_port[dpid][dst_ip]
+                    else:
+                        out_port = ofproto.OFPP_FLOOD
+                    for dpid in self.ip_to_port:
+                        print("dpid:",dpid)
+                        for each in self.ip_to_port[dpid]:
+                            print("ip:",each,"->","port:",self.ip_to_port[dpid][each])
+                    actions = [{"type":"OUTPUT","port":out_port}]
 
-# ethernet(dst='ff:ff:ff:ff:ff:ff',ethertype=2048,src='b6:3a:61:08:e7:eb')
-# ipv4(csum=14742,dst='255.255.255.255',flags=0,header_length=5,identification=0,offset=0,option=None,proto=17,src='0.0.0.0',tos=16,total_length=328,ttl=128,version=4)
-# udp(csum=62182,dst_port=67,src_port=68,total_length=308)
-# array('B', [1, 1, 6, 0, 21, 156, 209, 119, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 182, 58, 97, 8, 231, 235, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+                    if out_port != ofproto.OFPP_FLOOD:
+                        match = {
+                                "in_port":in_port,
+                                },
+                        if buffer_id != ofproto.OFP_NO_BUFFER:
+                            print("no_buffer")
+                            self.flowDispatcher.add_flow_rest_2(dpid, 222, match, actions, buffer_id)
+                            return
+                        else:
+                            self.flowDispatcher.add_flow_rest_2(dpid, 222, match, actions,ofproto.OFP_NO_BUFFER)
 
-# protocol:
-# ethernet(dst='33:33:00:00:00:02',ethertype=34525,src='00:00:00:00:00:03')
-# ipv6(dst='ff02::2',ext_hdrs=[],flow_label=0,hop_limit=255,nxt=58,payload_length=16,src='fe80::200:ff:fe00:3',traffic_class=0,version=6)
-# icmpv6(code=0,csum=31528,data=nd_router_solicit(option=nd_option_sla(data=None,hw_src='00:00:00:00:00:03',length=1),res=0),type_=133)
-
-
-
-
-
-            # if hasattr(protocol,'protocol_name'):
-            #     proto_name = protocol.protocol_name
-            #     if proto_name == 'arp':
-            #         for p in pkt.protocols:
-            #             print p
-            #         print ""
-                # if proto_name == 'arp':
-                #     print("arp...")
-                # elif proto_name == "ipv4":
-                #     print("ipv4...")
-                #     print(dpid)
-                #     print(msg.match["in_port"])
-
-
-
-
-
-
-        # self.traffic_finder.find(ev)
-    #     msg = ev.msg
-    #     datapath = msg.datapath
-    #     dpid = datapath.id
-    #
-    #     in_port = msg.match['in_port']
-    #     pkt = packet.Packet(msg.data)
-    #
-    #     arp_pkt = pkt.get_protocol(arp.arp)
-    #     ip_pkt = pkt.get_protocol(ipv4.ipv4)
-    #
-    #     if arp_pkt:
-    #         arp_src_ip = arp_pkt.src_ip
-    #         print("arp_src_ip:",arp_src_ip)
-    #         arp_dst_ip = arp_pkt.dst_ip
-    #         print("arp_dst_ip:",arp_dst_ip)
-    #         # record the access info
-    #         self.register_access_info(dpid, in_port, arp_src_ip)
-    #
-    # def register_access_info(self,dpid,in_port, ip):
-    #     self.access_table.setdefault(dpid,{})
-    #     port_to_ip = self.access_table[dpid]
-    #     if in_port in port_to_ip.keys():
-    #         if port_to_ip[in_port] == ip:
-    #             pass
-    #     else:
-    #         port_to_ip[in_port] = ip
-    #     for dpid in self.access_table:
-    #         print("dpid:",dpid)
-    #         for each in self.access_table[dpid]:
-    #             print(each,"->",self.access_table[dpid][each])
-    #
-    #
-    #     if in_port in self.access_table[dpid]:
-    #         if (dpid, in_port) in self.access_table:
-    #             if ip != self.access_table[(dpid, in_port)]:
-    #                 self.access_table[(dpid, in_port)] = ip
-    #         else:
-    #             self.access_table[(dpid, in_port)] = ip
+                    data = None
+                    if buffer_id == ofproto.OFP_NO_BUFFER:
+                        data = msg.data
+                    self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
+#----------------  arp ip learning ----------------
 
     @set_ev_cls(ofp_event.EventOFPStateChange,[MAIN_DISPATCHER, DEAD_DISPATCHER])
     def state_change_handler(self, ev):
@@ -262,7 +252,7 @@ class ProactiveApp(app_manager.RyuApp):
                                 "mpls_bos":1
                                 }
                         actions = [{"type":"OUTPUT","port":out_port}]
-                        self.flowDispatcher.add_flow_rest(dpid, priority, match, actions)
+                        self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
             else: # have several paths
                 path = paths[0]
                 mpls_label_str = ''
@@ -286,7 +276,7 @@ class ProactiveApp(app_manager.RyuApp):
                                 "mpls_bos":1
                                 }
                         actions = [{"type":"OUTPUT","port":out_port}]
-                        self.flowDispatcher.add_flow_rest(dpid, priority, match, actions)
+                        self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
