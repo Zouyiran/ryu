@@ -19,40 +19,29 @@ class CustomTopo(Topo):
         switches = list() # attention: must be switches not self.switches
         hosts = list()
 
-        # add Switches
         switches.append(self.addSwitch('s1'))
         switches.append(self.addSwitch('s2'))
         switches.append(self.addSwitch('s3'))
         switches.append(self.addSwitch('s4'))
         switches.append(self.addSwitch('s5'))
         switches.append(self.addSwitch('s6'))
+        switches.append(self.addSwitch('s7'))
+        switches.append(self.addSwitch('s8'))
 
-        # add Hosts
         hosts.append(self.addHost('h1',mac='00:00:00:00:00:01'))
         hosts.append(self.addHost('h2',mac='00:00:00:00:00:02'))
-        hosts.append(self.addHost('h3',mac='00:00:00:00:00:03'))
-        hosts.append(self.addHost('h4',mac='00:00:00:00:00:04'))
-        hosts.append(self.addHost('h5',mac='00:00:00:00:00:05'))
-        hosts.append(self.addHost('h6',mac='00:00:00:00:00:06'))
-        hosts.append(self.addHost('h7',mac='00:00:00:00:00:07'))
 
-# addLink( self, node1, node2, port1=None, port2=None,key=None, **opts )
-        # add Links between switches
         self.addLink(switches[0],switches[1])
-        # self.addLink(switches[1],switches[2])
-        self.addLink(switches[2],switches[0])
-        self.addLink(switches[0],switches[3])
-        self.addLink(switches[1],switches[4])
-        self.addLink(switches[2],switches[5])
+        self.addLink(switches[1],switches[2])
+        self.addLink(switches[2],switches[3])
+        self.addLink(switches[3],switches[4])
+        self.addLink(switches[4],switches[5])
+        self.addLink(switches[5],switches[6])
+        self.addLink(switches[6],switches[7])
 
-        # add Linkes between switches and hosts
-        self.addLink(switches[3],hosts[0], bw=1)
-        self.addLink(switches[3],hosts[1], bw=1)
-        self.addLink(switches[4],hosts[2], bw=1)
-        self.addLink(switches[4],hosts[3], bw=1)
-        self.addLink(switches[5],hosts[4], bw=1)
-        self.addLink(switches[5],hosts[5], bw=1)
-        self.addLink(switches[0],hosts[6], bw=1)
+        self.addLink(switches[0],hosts[0], bw=1)
+        self.addLink(switches[7],hosts[1], bw=1)
+
 
 #  create a custom switch extends OVSSwitch
 class CustomSwitch(OVSSwitch):
@@ -87,12 +76,11 @@ CONTROLLER_PORT = 6633
 def main():
     topo = CustomTopo()
     net = Mininet(topo=topo,
-                  link=TCLink,#"TCLink:Link with symmetric TC interfaces configured via opts"
+                  link=TCLink,
                   switch=CustomSwitch,
                   controller=None,
                   cleanup=True)
-    net.addController( name='controller',
-                       controller=RemoteController,
+    net.addController( controller=RemoteController,
                        ip=CONTROLLER_IP,
                        port=CONTROLLER_PORT)
 # def setIP( self, ip, prefixLen=8, intf=None, **kwargs ):
