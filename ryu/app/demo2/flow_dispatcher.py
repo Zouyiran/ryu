@@ -47,6 +47,7 @@ class FlowDispatcher(object):
 
     def packet_out(self, datapath, in_port, out_port, data, buffer_id=None):
         if buffer_id is None:
+            print("NO_BUFFER!!!")
             buffer_id = datapath.ofproto.OFP_NO_BUFFER
         parser = datapath.ofproto_parser
         actions = [parser.OFPActionOutput(out_port)]

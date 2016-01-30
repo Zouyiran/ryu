@@ -163,6 +163,7 @@ class ProactiveApp(app_manager.RyuApp):
                 paths = self.path_table[(src_dpid,dst_dpid)]
                 path_num = len(paths)
                 print("path_n num:",path_num)
+
                 if path_num == 0:# unreachable
                     print(src_mac,"->",dst_mac,": unreachable")
                     return
@@ -173,6 +174,7 @@ class ProactiveApp(app_manager.RyuApp):
                     # pick a one path,default pick the first path
                     path = paths[0]
                     print("path:",path)
+
                 if len(path) == 2: # src_mac -> dpid_1 -> dpid_2 -> dst_mac
                     print("len(path)==2:",len(path))
                     if dpid == path[0]: # dpid_1
@@ -189,6 +191,7 @@ class ProactiveApp(app_manager.RyuApp):
                     data = None
                     if buffer_id == ofproto.OFP_NO_BUFFER:
                         data = msg.data
+
                     self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
 
                 elif len(path) > 2: # src_mac -> dpid_1 -> dpid_2 -> dpid_3...-> dst_mac
@@ -198,17 +201,22 @@ class ProactiveApp(app_manager.RyuApp):
                         label_str = ''
                         for i in path:
                             label_str += str(i)
-                        mpls_proto = mpls.mpls(label=int(label_str), exp=5, bsb=1, ttl=255)
+                        print(label_str)
+                        mpls_proto = mpls.mpls(label=int(label_str))
+                        print("mpls_proto:",mpls_proto)
 
                         protocol_list = list()
                         for p in pkt:
+                            print("protocol_list:",p)
                             protocol_list.append(p) #[ethernet, ipv4, tcp,..]
 
                         pack = packet.Packet()
-                        pack.add_protocol(protocol_list[0])
+                        pack.add_protocol(ethernet.ethernet(dst=dst_mac, src=src_mac,ethertype=ether_types.ETH_TYPE_MPLS)) #
                         pack.add_protocol(mpls_proto)
                         for i in range(1,len(protocol_list)):
                             pack.add_protocol(protocol_list[i])
+                        for p in pack:
+                            print("p:",p)
                         pack.serialize()
                         data = pack.data
                         self.flowDispatcher.packet_out(datapath, in_port, out_port, data, None)
@@ -392,8 +400,6 @@ class ProactiveApp(app_manager.RyuApp):
                             "dl_type":ether_types.ETH_TYPE_MPLS,
                             "in_port":in_port,
                             "mpls_label":int(mpls_label_str),
-                            "mpls_tc":5,
-                            "mpls_bos":1
                             }
                     actions = [{"type":"OUTPUT","port":out_port}]
                     self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
