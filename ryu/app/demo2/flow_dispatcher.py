@@ -7,7 +7,13 @@ class FlowDispatcher(object):
     def __init__(self):
         self.IP = "http://localhost:8080"
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+    def add_flow(self, datapath, priority, match, actions,  buffer_id=None, idle_timeout=0, hard_timeout=0):
+        '''
+        OFPFlowMod default argument:
+        command=ofproto.OFPFC_ADD,
+        idle_timeout=0, hard_timeout=0,
+        priority=ofproto.OFP_DEFAULT_PRIORITY,
+        '''
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
@@ -15,11 +21,13 @@ class FlowDispatcher(object):
         # OFPFlowMod: The controller sends this message to modify the flow table.
         # command=ofproto.OFPFC_ADD
         if buffer_id:
-            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
-                                    priority=priority, match=match,
-                                    instructions=inst)
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    idle_timeout=idle_timeout, hard_timeout=hard_timeout,
+                                    match=match,instructions=inst,
+                                    buffer_id=buffer_id)
         else:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    idle_timeout=idle_timeout, hard_timeout=hard_timeout,
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
