@@ -54,8 +54,8 @@ class ProactiveApp(app_manager.RyuApp):
         # ...}
         self.path_table = dict()
 
-        self.SLEEP_PERIOD = 20 #seconds
-        self.PRIORITY = OFP_DEFAULT_PRIORITY # 0x8000
+        self.SLEEP_PERIOD = 10 #seconds
+        # OFP_DEFAULT_PRIORITY # 0x8000 or 32768
         self.LABEL = 0
 
         self.dpid_to_dp = dict()
@@ -115,6 +115,9 @@ class ProactiveApp(app_manager.RyuApp):
         if ar:
             print("----------arp----------")
             print("dpid:",dpid)
+            print("in_port:",in_port)
+            print("src_mac:",src_mac)
+            print("dst_mac:",dst_mac)
 
 #----------------  mpls ----------------
         # host_mac = self.hostmac_to_dpid.keys() # self.hosts
@@ -122,10 +125,10 @@ class ProactiveApp(app_manager.RyuApp):
             ic = pkt.get_protocol(icmp.icmp)
             if ic:
                 print("----------icmp----------")
-            print("dpid:",dpid)
-            print("in_port:",in_port)
-            print("src_mac:",src_mac)
-            print("dst_mac:",dst_mac)
+                print("dpid:",dpid)
+                print("in_port:",in_port)
+                print("src_mac:",src_mac)
+                print("dst_mac:",dst_mac)
             src_dpid = self.hostmac_to_dpid[src_mac]
             dst_dpid = self.hostmac_to_dpid[dst_mac]
 
@@ -135,16 +138,24 @@ class ProactiveApp(app_manager.RyuApp):
                 actions = [parser.OFPActionOutput(out_port)]
                 match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
                 if buffer_id != ofproto.OFP_NO_BUFFER:
-                    self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions, buffer_id, 1000, 0)
+                    self.flowDispatcher.add_flow(datapath,
+                                                 OFP_DEFAULT_PRIORITY,
+                                                 match,
+                                                 actions,
+                                                 buffer_id,
+                                                 idle_timeout=1000,hard_timeout=0)
                     return
                 else:
-                    self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions, 1000, 0)
+                    self.flowDispatcher.add_flow(datapath,
+                                                 OFP_DEFAULT_PRIORITY,
+                                                 match,
+                                                 actions,
+                                                 idle_timeout=1000,hard_timeout=0)
                 data = None
                 if buffer_id == ofproto.OFP_NO_BUFFER:
                     data = msg.data
                 self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
                 return
-
             elif (src_dpid,dst_dpid) in self.path_table.keys(): # must be in it, "if" is no need
                 paths = self.path_table[(src_dpid,dst_dpid)] # {xxx:[dpid,dpid,dpid],xxx:[dpid,dpid,dpid,dpid]}
                 path_num = len(paths)
@@ -155,7 +166,6 @@ class ProactiveApp(app_manager.RyuApp):
                     path = self.traffic_find(paths) # return (123,[1,2,3])
                 label = path[0]
                 path = path[1]
-
                 # NO need to mpls
                 if len(path) == 2:
                     if dpid == path[0]:
@@ -165,16 +175,25 @@ class ProactiveApp(app_manager.RyuApp):
                     actions = [parser.OFPActionOutput(out_port)]
                     match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
                     if buffer_id != ofproto.OFP_NO_BUFFER:
-                        self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions, buffer_id, 1000, 0)
+                        # add_flow(self, datapath, priority, match, actions,  buffer_id=None, idle_timeout=0, hard_timeout=0):
+                        self.flowDispatcher.add_flow(datapath,
+                                                     OFP_DEFAULT_PRIORITY,
+                                                     match,
+                                                     actions,
+                                                     buffer_id,
+                                                     idle_timeout=1000,hard_timeout=0)
                         return
                     else:
-                        self.flowDispatcher.add_flow(datapath, self.PRIORITY, match, actions, 1000, 0)
+                        self.flowDispatcher.add_flow(datapath,
+                                                     OFP_DEFAULT_PRIORITY,
+                                                     match,
+                                                     actions,
+                                                     idle_timeout=1000, hard_timeout=0)
                     data = None
                     if buffer_id == ofproto.OFP_NO_BUFFER:
                         data = msg.data
                     self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
                     return
-
                 # need to mpls
                 elif len(path) > 2:
                     if dpid == path[0]:
@@ -197,23 +216,30 @@ class ProactiveApp(app_manager.RyuApp):
 
 #----------------basic mac learning----------------
         self.mac_to_port.setdefault(dpid, {})
-        # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src_mac] = in_port
         if dst_mac in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst_mac]
         else:
             out_port = ofproto.OFPP_FLOOD
-
         actions = [parser.OFPActionOutput(out_port)]
-        # add a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
-            # verify if we have a valid buffer_id, if yes avoid to send both flow_mod & packet_out
             if buffer_id != ofproto.OFP_NO_BUFFER:
-                self.flowDispatcher.add_flow(datapath, 1, match, actions, buffer_id)
+                self.flowDispatcher.add_flow(datapath,
+                                             OFP_DEFAULT_PRIORITY,
+                                             match,
+                                             actions,
+                                             buffer_id,
+                                             idle_timeout=1000,
+                                             hard_timeout=0)
                 return
             else:
-                self.flowDispatcher.add_flow(datapath, 1, match, actions)
+                self.flowDispatcher.add_flow(datapath,
+                                             OFP_DEFAULT_PRIORITY,
+                                             match,
+                                             actions,
+                                             idle_timeout=1000,
+                                             hard_timeout=0)
         data = None
         if buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
@@ -232,6 +258,8 @@ class ProactiveApp(app_manager.RyuApp):
                 self.logger.info('un register datapath: %04x', datapath.id)
                 del self.dpid_to_dp[datapath.id]
 
+#--------------------------------
+#--------------------------------
     def __add_path_flows(self,first_in_port, dst_mac, parser, path):
         num = len(path)
         for i in range(num):
@@ -247,8 +275,11 @@ class ProactiveApp(app_manager.RyuApp):
             datapath = self.dpid_to_dp[dpid]
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
             actions = [parser.OFPActionOutput(out_port)]
-            self.flowDispatcher.add_flow(datapath, 1, match, actions)
-
+            self.flowDispatcher.add_flow(datapath,
+                                         OFP_DEFAULT_PRIORITY,
+                                         match,
+                                         actions,
+                                         idle_timeout=1000, hard_timeout=0)
 
     def __add_mpls(self,  pkt_old, label, src_mac, dst_mac):
         pkt_new = packet.Packet()
@@ -346,7 +377,7 @@ class ProactiveApp(app_manager.RyuApp):
                 if len(path) > 2: # if at least host->dpid->dpid->dpid->host, then pre install
                     for i in range(1,len(path)-1):
                         dpid = path[i]
-                        priority = self.PRIORITY # 32768 or 0x8000
+                        priority = OFP_DEFAULT_PRIORITY # 32768 or 0x8000
                         in_port = self.links_dpid_to_port[(path[i-1],path[i])][1]
                         out_port = self.links_dpid_to_port[(path[i],path[i+1])][0]
                         match = {
