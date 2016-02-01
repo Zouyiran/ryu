@@ -45,12 +45,12 @@ class CustomTopo(Topo):
         self.addLink(switches[2],switches[5])
 
         # add Linkes between switches and hosts
-        self.addLink(switches[3],hosts[0], bw=1)
-        self.addLink(switches[3],hosts[1], bw=1)
-        self.addLink(switches[4],hosts[2], bw=1)
-        self.addLink(switches[4],hosts[3], bw=1)
-        self.addLink(switches[5],hosts[4], bw=1)
-        self.addLink(switches[5],hosts[5], bw=1)
+        self.addLink(switches[3],hosts[0], bw=2)
+        self.addLink(switches[3],hosts[1], bw=2)
+        self.addLink(switches[4],hosts[2], bw=2)
+        self.addLink(switches[4],hosts[3], bw=2)
+        self.addLink(switches[5],hosts[4], bw=2)
+        self.addLink(switches[5],hosts[5], bw=2)
 
 #  create a custom switch extends OVSSwitch
 class CustomSwitch(OVSSwitch):
