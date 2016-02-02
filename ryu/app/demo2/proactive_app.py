@@ -19,9 +19,10 @@ from flow_dispatcher import FlowDispatcher
 
 class ProactiveApp(app_manager.RyuApp):
     '''
-    Proactive App:
-    handle incoming event and
-    trigger the relevant handle module
+    pre-install the flows(match mpls) when topo changed
+    when packet(e.g icmp) come
+    add packet with mpls
+    so ONLY TWO icmp packets(the src_mac and dst_mac) will packet_in to the controller
     '''
 
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -59,7 +60,6 @@ class ProactiveApp(app_manager.RyuApp):
         self.LABEL = 0
 
         self.dpid_to_dp = dict()
-        self.ip_to_port = dict()
         self.mac_to_port = dict()
 
         self.discover_thread = hub.spawn(self.path_find)
@@ -112,23 +112,10 @@ class ProactiveApp(app_manager.RyuApp):
         dst_mac = eth.dst
 
         ar = pkt.get_protocol(arp.arp)
-        if ar:
-            print("----------arp----------")
-            print("dpid:",dpid)
-            print("in_port:",in_port)
-            print("src_mac:",src_mac)
-            print("dst_mac:",dst_mac)
 
 #----------------  mpls ----------------
         # host_mac = self.hostmac_to_dpid.keys() # self.hosts
         if not ar and src_mac in self.hosts and dst_mac in self.hosts:
-            ic = pkt.get_protocol(icmp.icmp)
-            if ic:
-                print("----------icmp----------")
-                print("dpid:",dpid)
-                print("in_port:",in_port)
-                print("src_mac:",src_mac)
-                print("dst_mac:",dst_mac)
             src_dpid = self.hostmac_to_dpid[src_mac]
             dst_dpid = self.hostmac_to_dpid[dst_mac]
 
