@@ -19,7 +19,7 @@ from flow_dispatcher import FlowDispatcher
 
 class ProactiveApp(app_manager.RyuApp):
     '''
-    when arp pcket return
+    when arp packet return
     pre-install the flows along the selected path
     the pre-install action be triggered on the first returned switch(the dst_mac switch)
     so the icmp packet will NOT packet_in to the controller
