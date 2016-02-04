@@ -247,11 +247,12 @@ class ProactiveApp(app_manager.RyuApp):
                 if i == j:
                     continue
                 all_shortest_paths[(i,j)] = list()
+                try:
+                    nx.shortest_path(g,i,j)
+                except nx.exception.NetworkXNoPath:
+                    continue
                 for each in nx.all_shortest_paths(g,i,j):
-                    try:
-                        all_shortest_paths[(i,j)].append(each)
-                    except nx.NetworkXNoPath:
-                        print("CATCH EXCEPTION: nx.NetworkXNoPath")
+                    all_shortest_paths[(i,j)].append(each)
         return all_shortest_paths
 
     def _get_switches_mac_to_port(self,switch_list):

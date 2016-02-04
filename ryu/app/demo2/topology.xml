@@ -1,0 +1,677 @@
+<topology linkdefault="undirected">
+  <property name="delay_unit" type="string">ms</property>
+  <property name="capacity_unit" type="string">Mbps</property>
+  <property name="distance_unit" type="string">Km</property>
+  <property name="type" type="string">waxman_1</property>
+  <property name="name" type="string">waxman_1_topology(30, 0.6, 0.2, 1.0)</property>
+  <node id="0" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="1" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="2" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="3" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="4" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="5" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="6" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="7" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="8" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="9" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="10" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="11" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="12" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="13" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="14" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="15" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="16" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="17" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="18" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="19" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="20" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="21" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="22" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="23" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="24" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="25" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="26" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="27" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="28" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="29" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="30" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="31" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="32" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="33" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="34" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="35" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="36" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="37" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="38" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="39" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <link>
+    <from type="int">0</from>
+    <to type="int">17</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0207126632496</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">0</from>
+    <to type="int">29</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.18362148403</property>
+    <property name="capacity" type="int">10</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">0</from>
+    <to type="int">6</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0556625485003</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">0</from>
+    <to type="int">13</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.130381184355</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">1</from>
+    <to type="int">9</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.211701094319</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">1</from>
+    <to type="int">7</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.637591997839</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">1</from>
+    <to type="int">28</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.120755736976</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">1</from>
+    <to type="int">21</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0727467167349</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">1</from>
+    <to type="int">13</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.298409792622</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">2</from>
+    <to type="int">9</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0546134807762</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">2</from>
+    <to type="int">27</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0281159561669</property>
+    <property name="capacity" type="int">10</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">2</from>
+    <to type="int">28</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.331025463205</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">2</from>
+    <to type="int">29</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.13804260224</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">3</from>
+    <to type="int">27</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.141668965917</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">3</from>
+    <to type="int">28</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.210331643946</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">3</from>
+    <to type="int">13</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0464419385896</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">4</from>
+    <to type="int">17</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0717928172343</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">4</from>
+    <to type="int">12</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.459022468092</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">4</from>
+    <to type="int">14</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0350857131183</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">5</from>
+    <to type="int">32</to>
+    <property name="delay" type="int">1</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">5</from>
+    <to type="int">36</to>
+    <property name="delay" type="int">1</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">5</from>
+    <to type="int">8</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0478344854049</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">5</from>
+    <to type="int">13</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.2737004703</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">5</from>
+    <to type="int">26</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.334507004142</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">5</from>
+    <to type="int">28</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.694128185986</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">6</from>
+    <to type="int">9</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.33695637869</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">6</from>
+    <to type="int">28</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.290956241278</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">6</from>
+    <to type="int">14</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.107487093039</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">7</from>
+    <to type="int">24</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.25603485615</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">7</from>
+    <to type="int">10</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.116967541756</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">7</from>
+    <to type="int">12</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.00414656876048</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">7</from>
+    <to type="int">37</to>
+    <property name="delay" type="int">1</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">8</from>
+    <to type="int">24</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0176342707185</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">8</from>
+    <to type="int">34</to>
+    <property name="delay" type="int">1</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">8</from>
+    <to type="int">14</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.114448569338</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">9</from>
+    <to type="int">26</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.230631616307</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">10</from>
+    <to type="int">25</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.389397751324</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">10</from>
+    <to type="int">18</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.205877537374</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">10</from>
+    <to type="int">39</to>
+    <property name="delay" type="int">1</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">10</from>
+    <to type="int">20</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.221086844911</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">11</from>
+    <to type="int">17</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.19060632937</property>
+    <property name="capacity" type="int">10</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">11</from>
+    <to type="int">20</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.101062961671</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">11</from>
+    <to type="int">29</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.26808975097</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">11</from>
+    <to type="int">14</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0870653381756</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">11</from>
+    <to type="int">12</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0252109665033</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">12</from>
+    <to type="int">38</to>
+    <property name="delay" type="int">1</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">12</from>
+    <to type="int">13</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0324716470054</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">12</from>
+    <to type="int">14</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.651842812831</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">12</from>
+    <to type="int">15</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0140676901901</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">12</from>
+    <to type="int">22</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.318192872862</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">14</from>
+    <to type="int">21</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.217384678735</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">15</from>
+    <to type="int">24</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.107738461248</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">15</from>
+    <to type="int">19</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.249704623921</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">16</from>
+    <to type="int">20</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0187604598421</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">16</from>
+    <to type="int">28</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.139873638294</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">17</from>
+    <to type="int">18</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.508440720861</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">17</from>
+    <to type="int">20</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0296398501479</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">17</from>
+    <to type="int">22</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.712534995171</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">18</from>
+    <to type="int">21</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0696530416649</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">18</from>
+    <to type="int">23</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.767694796261</property>
+    <property name="capacity" type="int">10</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">19</from>
+    <to type="int">31</to>
+    <property name="delay" type="int">1</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">20</from>
+    <to type="int">23</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.208420929394</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">20</from>
+    <to type="int">24</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.24446969044</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">21</from>
+    <to type="int">23</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.0750591440367</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">22</from>
+    <to type="int">24</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.494803762482</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">23</from>
+    <to type="int">25</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.155829837774</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">23</from>
+    <to type="int">30</to>
+    <property name="delay" type="int">1</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">26</from>
+    <to type="int">35</to>
+    <property name="delay" type="int">1</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">27</from>
+    <to type="int">29</to>
+    <property name="delay" type="int">1</property>
+    <property name="length" type="float">0.213968803626</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">28</from>
+    <to type="int">33</to>
+    <property name="delay" type="int">1</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+</topology>
