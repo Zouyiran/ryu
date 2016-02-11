@@ -2,6 +2,7 @@
 
 import copy
 import networkx as nx
+import requests
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -104,13 +105,6 @@ class ProactiveApp(app_manager.RyuApp):
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
-        src_mac = eth.src
-        dst_mac = eth.dst
-        ar = pkt.get_protocol(arp.arp)
-        if ar and src_mac in self.hosts and dst_mac in self.hosts:
-            print('>>>>>>packet_in_handler_stp if ar and src_mac in self.hosts and dst_mac in self.hosts the DPID:',dpid)
-
-        eth = pkt.get_protocols(ethernet.ethernet)[0]
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
 
@@ -150,23 +144,10 @@ class ProactiveApp(app_manager.RyuApp):
             if buffer_id == ofproto.OFP_NO_BUFFER:
                 data = msg.data
             self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
-
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler(self, ev):
-        msg = ev.msg
-        datapath = msg.datapath
-        parser = datapath.ofproto_parser
-        dpid = datapath.id
-        in_port = msg.match['in_port']
-
-        pkt = packet.Packet(msg.data)
-        eth = pkt.get_protocols(ethernet.ethernet)[0]
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            return
-
-        src_mac = eth.src
-        dst_mac = eth.dst
         ar = pkt.get_protocol(arp.arp)
+        if ar:
+            for p in pkt:
+                print(p)
         if ar and src_mac in self.hosts and dst_mac in self.hosts:
             print('>>>>>>if ar and src_mac in self.hosts and dst_mac in self.hosts the DPID:',dpid)
             src_dpid = self.hostmac_to_dpid[dst_mac]
@@ -217,6 +198,7 @@ class ProactiveApp(app_manager.RyuApp):
                                                          actions,
                                                          idle_timeout=10000,
                                                          hard_timeout=0)
+
 
     @set_ev_cls(ofp_event.EventOFPStateChange,[MAIN_DISPATCHER, DEAD_DISPATCHER])
     def state_change_handler(self, ev):
@@ -286,13 +268,13 @@ class ProactiveApp(app_manager.RyuApp):
             hub.sleep(self.SLEEP_PERIOD)
             self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
             self._update_topology() # update: self.dpid_mac_to_port,self.dpids, self.links_dpid_to_port, self.links, self.adjacency_matrix
-            self._update_hosts() # update: self.hostmac_to_dpid, self.hostmac_to_port, self.hosts
+            # self._update_hosts() # update: self.hostmac_to_dpid, self.hostmac_to_port, self.hosts
+            # self._show_host()
             # when adjacency matrix is update,then update the path_table
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
-                # self._show_matrix()
                 self.path_table = self._get_path_table(self.adjacency_matrix)
-                # self._show_path_table()
+
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
@@ -308,11 +290,14 @@ class ProactiveApp(app_manager.RyuApp):
             self.adjacency_matrix = self._get_adjacency_matrix(self.dpids, self.links)
 
     def _update_hosts(self):
-        host_obj  = get_all_host(self)
-        # print("host_obj length:",len(host_obj))
-        if host_obj:
-            self.hostmac_to_dpid, self.hostmac_to_port = self._get_hosts_to_dpid_and_port(host_obj)
-            self.hosts = self._get_hosts(host_obj) # mac
+        res = requests.get(url="http://localhost:8080"+"/v1.0/topology/hosts")
+        print("res.text:",res.text)
+
+
+        # host_obj  = get_all_host(self)
+        # if host_obj:
+        #     self.hostmac_to_dpid, self.hostmac_to_port = self._get_hosts_to_dpid_and_port(host_obj)
+        #     self.hosts = self._get_hosts(host_obj) # mac
 
     def _get_path_table(self, matrix):
         if matrix:

@@ -52,6 +52,9 @@ class FlowDispatcher(object):
                 }
         requests.post(url=self.IP+uri,data=str(data))
 
+    def get_hosts(self):
+        uri = "/v1.0/topology/hosts"
+        return requests.get(url=self.IP+uri)
 
     def packet_out(self, datapath, in_port, out_port, data, buffer_id=None):
         if buffer_id is None:
