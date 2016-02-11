@@ -11,6 +11,8 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib import hub
+from ryu.lib import stplib
+from ryu.lib import dpid as dpid_lib
 from ryu.lib.packet import packet, ethernet, arp, ether_types,mpls, icmp
 from ryu.topology.api import get_all_switch, get_all_link,get_all_host
 
@@ -26,9 +28,24 @@ class ProactiveApp(app_manager.RyuApp):
     '''
 
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+    _CONTEXTS = {'stplib': stplib.Stp}
 
     def __init__(self, *args, **kwargs):
         super(ProactiveApp, self).__init__(*args, **kwargs)
+        self.stp = kwargs['stplib']
+
+        # Sample of stplib config.
+        #  please refer to stplib.Stp.set_config() for details.
+        # config = {dpid_lib.str_to_dpid('0000000000000001'):
+        #              {'bridge': {'priority': 0x8000}},
+        #           dpid_lib.str_to_dpid('0000000000000002'):
+        #              {'bridge': {'priority': 0x9000}},
+        #           dpid_lib.str_to_dpid('0000000000000003'):
+        #              {'bridge': {'priority': 0xa000}}}
+        # self.stp.set_config(config)
+
+        self.mac_to_port = {}
+
         self.flowDispatcher = FlowDispatcher()
 
         # {dpid:{mac:port,mac:port,...},dpid:{mac:port,mac:port,...},...} mac is switch_mac NOT host_mac
@@ -63,6 +80,7 @@ class ProactiveApp(app_manager.RyuApp):
         self.discover_thread = hub.spawn(self.path_find)
 
 
+    # install table-miss flow entry
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         datapath = ev.msg.datapath
@@ -73,8 +91,9 @@ class ProactiveApp(app_manager.RyuApp):
                                           ofproto.OFPCML_NO_BUFFER)]
         self.flowDispatcher.add_flow(datapath, 0, match, actions)
 
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler(self, ev):
+    @set_ev_cls(stplib.EventPacketIn, MAIN_DISPATCHER)
+    def packet_in_handler_stp(self, ev):
+        # print("packet_in_handler_stp")
         msg = ev.msg
         buffer_id = msg.buffer_id
         datapath = msg.datapath
@@ -83,11 +102,14 @@ class ProactiveApp(app_manager.RyuApp):
         dpid = datapath.id
         in_port = msg.match['in_port']
 
-        if msg.msg_len < msg.total_len:
-            self.logger.debug("packet truncated: only %s of %s bytes",
-                              msg.msg_len, msg.total_len)
-
         pkt = packet.Packet(msg.data)
+        eth = pkt.get_protocols(ethernet.ethernet)[0]
+        src_mac = eth.src
+        dst_mac = eth.dst
+        ar = pkt.get_protocol(arp.arp)
+        if ar and src_mac in self.hosts and dst_mac in self.hosts:
+            print('>>>>>>packet_in_handler_stp if ar and src_mac in self.hosts and dst_mac in self.hosts the DPID:',dpid)
+
         eth = pkt.get_protocols(ethernet.ethernet)[0]
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
@@ -102,6 +124,7 @@ class ProactiveApp(app_manager.RyuApp):
         else:
             out_port = ofproto.OFPP_FLOOD
         actions = [parser.OFPActionOutput(out_port)]
+
         if out_port != ofproto.OFPP_FLOOD:# add flow
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac)
             if buffer_id != ofproto.OFP_NO_BUFFER:
@@ -110,14 +133,14 @@ class ProactiveApp(app_manager.RyuApp):
                                              match,
                                              actions,
                                              buffer_id,
-                                             idle_timeout=1000,
+                                             idle_timeout=10001,
                                              hard_timeout=0)
             else:
                 self.flowDispatcher.add_flow(datapath,
                                              OFP_DEFAULT_PRIORITY,
                                              match,
                                              actions,
-                                             idle_timeout=1000,
+                                             idle_timeout=10001,
                                              hard_timeout=0)
         # attention:
         # if self.data is not None:
@@ -128,11 +151,28 @@ class ProactiveApp(app_manager.RyuApp):
                 data = msg.data
             self.flowDispatcher.packet_out(datapath, in_port, out_port, data, buffer_id)
 
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    def packet_in_handler(self, ev):
+        msg = ev.msg
+        datapath = msg.datapath
+        parser = datapath.ofproto_parser
+        dpid = datapath.id
+        in_port = msg.match['in_port']
+
+        pkt = packet.Packet(msg.data)
+        eth = pkt.get_protocols(ethernet.ethernet)[0]
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+            return
+
+        src_mac = eth.src
+        dst_mac = eth.dst
         ar = pkt.get_protocol(arp.arp)
         if ar and src_mac in self.hosts and dst_mac in self.hosts:
+            print('>>>>>>if ar and src_mac in self.hosts and dst_mac in self.hosts the DPID:',dpid)
             src_dpid = self.hostmac_to_dpid[dst_mac]
             dst_dpid = self.hostmac_to_dpid[src_mac]
             if src_dpid  == dst_dpid:
+                print("src_dpid  == dst_dpid")
                 out_port = in_port
                 in_port =  self.hostmac_to_port[dst_mac]
                 actions = [parser.OFPActionOutput(out_port)]
@@ -141,17 +181,22 @@ class ProactiveApp(app_manager.RyuApp):
                                              OFP_DEFAULT_PRIORITY,
                                              match,
                                              actions,
-                                             idle_timeout=1000,hard_timeout=0)
+                                             idle_timeout=10000,
+                                             hard_timeout=0)
             else:
+                print("src_dpid  != dst_dpid")
                 if dpid == dst_dpid:
+                    print("now dpid == dst_dpid")
                     paths = self.path_table[(src_dpid,dst_dpid)]
                     path_num = len(paths)
                     if path_num == 0:
                         self.logger.info(src_mac,"->",dst_mac,": unreachable")
                     else:
                         path = self.traffic_find(paths)
+                        print("path:",path)
                         for i in range(len(path)):
                             dpid = path[i]
+                            print("path dpid is:",dpid)
                             datapath = self.dpid_to_dp[dpid]
                             parser = datapath.ofproto_parser
                             if i == 0:
@@ -170,7 +215,8 @@ class ProactiveApp(app_manager.RyuApp):
                                                          OFP_DEFAULT_PRIORITY,
                                                          match,
                                                          actions,
-                                                         idle_timeout=1000,hard_timeout=0)
+                                                         idle_timeout=10000,
+                                                         hard_timeout=0)
 
     @set_ev_cls(ofp_event.EventOFPStateChange,[MAIN_DISPATCHER, DEAD_DISPATCHER])
     def state_change_handler(self, ev):
@@ -183,6 +229,40 @@ class ProactiveApp(app_manager.RyuApp):
             if datapath.id in self.dpid_to_dp:
                 self.logger.info('un register datapath: %04x', datapath.id)
                 del self.dpid_to_dp[datapath.id]
+
+    @set_ev_cls(stplib.EventTopologyChange, MAIN_DISPATCHER)
+    def _topology_change_handler(self, ev):
+        dp = ev.dp
+        dpid_str = dpid_lib.dpid_to_str(dp.id)
+        msg = 'Receive topology change event. Flush MAC table.'
+        self.logger.debug("[dpid=%s] %s", dpid_str, msg)
+
+        if dp.id in self.mac_to_port:
+            self.delete_flow(dp)
+            del self.mac_to_port[dp.id]
+
+    def delete_flow(self, datapath):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        for dst in self.mac_to_port[datapath.id].keys():
+            match = parser.OFPMatch(eth_dst=dst)
+            mod = parser.OFPFlowMod(
+                datapath, command=ofproto.OFPFC_DELETE,
+                out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY,
+                priority=1, match=match)
+            datapath.send_msg(mod)
+
+    @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
+    def _port_state_change_handler(self, ev):
+        dpid_str = dpid_lib.dpid_to_str(ev.dp.id)
+        of_state = {stplib.PORT_STATE_DISABLE: 'DISABLE',
+                    stplib.PORT_STATE_BLOCK: 'BLOCK',
+                    stplib.PORT_STATE_LISTEN: 'LISTEN',
+                    stplib.PORT_STATE_LEARN: 'LEARN',
+                    stplib.PORT_STATE_FORWARD: 'FORWARD'}
+        self.logger.debug("[dpid=%s][port=%d] state=%s",
+                          dpid_str, ev.port_no, of_state[ev.port_state])
 
 #--------------------------------
 #--------------------------------
@@ -210,10 +290,13 @@ class ProactiveApp(app_manager.RyuApp):
             # when adjacency matrix is update,then update the path_table
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
+                # self._show_matrix()
                 self.path_table = self._get_path_table(self.adjacency_matrix)
+                # self._show_path_table()
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
+        # print("switch_list length:",len(switch_list))
         if switch_list:
             self.dpid_mac_to_port = self._get_switches_mac_to_port(switch_list)
             self.dpids = self._get_switches(switch_list) # dpid
@@ -226,6 +309,7 @@ class ProactiveApp(app_manager.RyuApp):
 
     def _update_hosts(self):
         host_obj  = get_all_host(self)
+        # print("host_obj length:",len(host_obj))
         if host_obj:
             self.hostmac_to_dpid, self.hostmac_to_port = self._get_hosts_to_dpid_and_port(host_obj)
             self.hosts = self._get_hosts(host_obj) # mac

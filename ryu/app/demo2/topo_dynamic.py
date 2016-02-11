@@ -18,6 +18,7 @@ from mininet.net import Mininet
 from mininet.link import TCLink
 from mininet.node import OVSController, OVSSwitch, RemoteController, Host, Ryu
 from mininet.cli import CLI
+from mininet.util import dumpNodeConnections
 
 #  create a custom switch extends OVSSwitch
 class CustomSwitch(OVSSwitch):
@@ -31,7 +32,7 @@ class CustomSwitch(OVSSwitch):
 CONTROLLER_IP = "127.0.0.1"
 CONTROLLER_PORT = 6633
 
-def waxman_topology(n_switch, n_host, alpha=0.6, beta=0.2, L=1.0, distance_unit='Km', seed=None):
+def waxman_topology(n_switch, n_host, alpha=0.4, beta=0.1, L=1.0, distance_unit='Km', seed=None):
     topo = fnss.waxman_1_topology(n=n_switch, alpha=alpha, beta=beta, L=L, distance_unit=distance_unit, seed=seed)
     for v in range(n_switch):
         topo.node[v]["type"] = "switch"
@@ -46,7 +47,7 @@ def waxman_topology(n_switch, n_host, alpha=0.6, beta=0.2, L=1.0, distance_unit=
 
 def main():
     # generate a Waxman1 topology with 200 nodes
-    topology = waxman_topology(n_switch=30, n_host=10, alpha=0.6, beta=0.2, L=1.0)
+    topology = waxman_topology(n_switch=10, n_host=8, alpha=0.99, beta=0.2, L=1.0)
 
     # assign constant weight (1) to all links
     fnss.set_weights_constant(topology, 1)
@@ -62,7 +63,7 @@ def main():
 
     # now create a static traffic matrix assuming all nodes are both origins
     # and destinations of traffic
-    traffic_matrix = fnss.static_traffic_matrix(topology, mean=2, stddev=0.2, max_u=0.5)
+    # traffic_matrix = fnss.static_traffic_matrix(topology, mean=2, stddev=0.2, max_u=0.5)
 
     # # This is the event generator function, which generates link failure events
     # def rand_failure(links):
@@ -102,7 +103,7 @@ def main():
     # Write topology, event schedule and traffic matrix to files
     fnss.write_topology(topology, 'topology.xml')
     # fnss.write_event_schedule(event_schedule, 'event_schedule.xml')
-    fnss.write_traffic_matrix(traffic_matrix, 'traffic_matrix.xml')
+    # fnss.write_traffic_matrix(traffic_matrix, 'traffic_matrix.xml')
 
     mn_topo = fnss.to_mininet(topology=topology, relabel_nodes=True)
     net = Mininet(topo=mn_topo, link=TCLink,  switch=CustomSwitch, host=Host, controller=None, cleanup=True)
@@ -133,6 +134,7 @@ def main():
     # net.addLink('h9','s30',cls=TCLink, bw=1)
     # net.addLink('h10','s45',cls=TCLink, bw=1)
     net.start()
+    dumpNodeConnections(net.hosts)
     CLI(net)
     # # Dump host connections
     # dumpNodeConnections(net.hosts)

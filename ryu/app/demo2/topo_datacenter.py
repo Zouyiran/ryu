@@ -39,11 +39,12 @@ class CustomTopo(Topo):
 # addLink( self, node1, node2, port1=None, port2=None,key=None, **opts )
         # add Links between switches
         self.addLink(switches[0],switches[1])
-        # self.addLink(switches[1],switches[2])
+        self.addLink(switches[1],switches[2])
         self.addLink(switches[2],switches[0])
         self.addLink(switches[0],switches[3])
         self.addLink(switches[1],switches[4])
         self.addLink(switches[2],switches[5])
+        self.addLink(switches[3],switches[5])
 
         # add Linkes between switches and hosts
         self.addLink(switches[3],hosts[0], bw=1)
