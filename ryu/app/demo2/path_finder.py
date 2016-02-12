@@ -5,7 +5,7 @@ import logging
 
 import networkx as nx
 
-from ryu.app.demo3.flow_dispatcher import FlowDispatcher
+from ryu.app.demo3.flow_dispatch import FlowDispatcher
 from ryu.base import app_manager
 from ryu.lib import hub
 from ryu.lib.packet import ether_types

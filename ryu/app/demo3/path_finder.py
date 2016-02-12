@@ -4,7 +4,7 @@ import copy
 
 import networkx as nx
 
-from ryu.app.demo3.flow_dispatcher import FlowDispatcher
+from ryu.app.demo3.flow_dispatch import FlowDispatcher
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -74,13 +74,13 @@ class PathFinder(app_manager.RyuApp):
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
                 self.path_table = self._get_path_table(self.adjacency_matrix)
-                self._show_dpids()
-                self._show_links()
-                self._show_hosts()
-                self._show_dpid_port_to_mac()
-                self._show_links_dpid_to_port()
-                self._show_matrix()
-                self._show_path_table()
+            # self._show_dpids()
+            # self._show_links()
+            # # self._show_hosts()
+            # self._show_dpid_port_to_mac()
+            # self._show_links_dpid_to_port()
+            # self._show_matrix()
+            # self._show_path_table()
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
@@ -136,6 +136,7 @@ class PathFinder(app_manager.RyuApp):
     def _update_hosts(self):
         host_list = get_all_host(self)
         if host_list:
+            print("host_lists!!!!!!!!!!!!!!!")
             self._get_hosts(host_list)
 
     def _get_hosts(self,host_list):

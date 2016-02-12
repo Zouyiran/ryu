@@ -4,7 +4,7 @@ import copy
 
 import networkx as nx
 
-from ryu.app.demo3.flow_dispatcher import FlowDispatcher
+from ryu.app.demo3.flow_dispatch import FlowDispatcher
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER
