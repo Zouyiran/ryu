@@ -4,7 +4,8 @@ import copy
 
 import networkx as nx
 
-from ryu.app.demo2.flow_dispatcher import FlowDispatcher
+from ryu.app.demo3.flow_dispatcher import FlowDispatcher
+from ryu.app.demo3.path_finder import PathFinder
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -21,28 +22,17 @@ from ryu.topology.api import get_all_switch, get_all_link
 
 class ProactiveApp(app_manager.RyuApp):
     '''
-    when arp packet return
-    pre-install the flows along the selected path
-    the pre-install action be triggered on the first returned switch(the dst_mac switch)
-    so the icmp packet will NOT packet_in to the controller
+
     '''
 
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    _CONTEXTS = {'stplib': stplib.Stp}
+    _CONTEXTS = {
+        "PathFinder": PathFinder,
+    }
 
     def __init__(self, *args, **kwargs):
         super(ProactiveApp, self).__init__(*args, **kwargs)
-        self.stp = kwargs['stplib']
-
-        # Sample of stplib config.
-        #  please refer to stplib.Stp.set_config() for details.
-        # config = {dpid_lib.str_to_dpid('0000000000000001'):
-        #              {'bridge': {'priority': 0x8000}},
-        #           dpid_lib.str_to_dpid('0000000000000002'):
-        #              {'bridge': {'priority': 0x9000}},
-        #           dpid_lib.str_to_dpid('0000000000000003'):
-        #              {'bridge': {'priority': 0xa000}}}
-        # self.stp.set_config(config)
+        self.path_finder = kwargs["PathFinder"]
 
         self.mac_to_port = {}
 
@@ -79,6 +69,9 @@ class ProactiveApp(app_manager.RyuApp):
 
         self.discover_thread = hub.spawn(self.path_find)
 
+        self.dpid_port_to_hostip = dict()
+
+
 
     # install table-miss flow entry
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -91,9 +84,8 @@ class ProactiveApp(app_manager.RyuApp):
                                           ofproto.OFPCML_NO_BUFFER)]
         self.flowDispatcher.add_flow(datapath, 0, match, actions)
 
-    @set_ev_cls(stplib.EventPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler_stp(self, ev):
-        # print("packet_in_handler_stp")
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    def packet_in_handler(self, ev):
         msg = ev.msg
         buffer_id = msg.buffer_id
         datapath = msg.datapath
@@ -147,6 +139,15 @@ class ProactiveApp(app_manager.RyuApp):
         if ar:
             for p in pkt:
                 print(p)
+
+
+        arp_pkt = pkt.get_protocol(arp.arp)
+        if arp_pkt:
+            arp_src_ip = arp_pkt.src_ip
+            arp_dst_ip = arp_pkt.dst_ip
+            self.register_access_info(dpid, in_port, arp_src_ip)
+
+
         if ar and src_mac in self.hosts and dst_mac in self.hosts:
             print('>>>>>>if ar and src_mac in self.hosts and dst_mac in self.hosts the DPID:',dpid)
             src_dpid = self.hostmac_to_dpid[dst_mac]
@@ -198,6 +199,9 @@ class ProactiveApp(app_manager.RyuApp):
                                                          idle_timeout=10000,
                                                          hard_timeout=0)
 
+
+    def register_access_info(self, dpid, in_port, host_ip):
+            self.dpid_port_to_hostip[(dpid, in_port)] = host_ip
 
     @set_ev_cls(ofp_event.EventOFPStateChange,[MAIN_DISPATCHER, DEAD_DISPATCHER])
     def state_change_handler(self, ev):

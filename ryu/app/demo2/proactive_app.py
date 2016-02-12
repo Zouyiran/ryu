@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 
 import copy
+
 import networkx as nx
 
+from ryu.app.demo3.flow_dispatcher import FlowDispatcher
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import CONFIG_DISPATCHER
+from ryu.controller.handler import MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
-from ryu.ofproto import ofproto_v1_3
 from ryu.lib import hub
-from ryu.lib.packet import packet, ethernet, arp, ether_types,mpls, icmp
+from ryu.lib.packet import packet, ethernet, arp, ether_types,mpls
+from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.topology.api import get_all_switch, get_all_link,get_all_host
-
-from flow_dispatcher import FlowDispatcher
 
 
 class ProactiveApp(app_manager.RyuApp):
