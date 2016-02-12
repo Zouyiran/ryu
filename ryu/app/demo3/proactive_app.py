@@ -16,12 +16,12 @@ from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.topology.api import get_all_switch, get_all_link
 
 from flow_dispatcher import FlowDispatcher
-from path_finder import PathFinder
+import  path_finder
 
 class ProactiveApp(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
-        "PathFinder": PathFinder
+        "PathFinder": path_finder.PathFinder
     }
 
     def __init__(self, *args, **kwargs):
@@ -32,8 +32,11 @@ class ProactiveApp(app_manager.RyuApp):
         self.dpid_to_dp = self.path_finder.dpid_to_dp
         self.path_table = self.path_finder.path_table
         self.dpids = self.path_finder.dpids
+        self.access_port = self.path_finder.dpids_to_access_port
 
         self.dpid_ip_to_port = dict()
+        self.access_table = dict()
+
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
@@ -65,19 +68,76 @@ class ProactiveApp(app_manager.RyuApp):
                 out_port = ofproto.OFPP_FLOOD
             data = msg.data
             self.flowDispatcher.packet_out(datapath, in_port, out_port, data, None)
+            self.register_access_info(dpid, arp_src_ip, in_port)
+
         if isinstance(ip_pkt,ipv4.ipv4): # ipv4
             src_ip = ip_pkt.src
             dst_ip = ip_pkt.dst
-            self.dpid_ip_to_port.setdefault(dpid,{})
-            self.dpid_ip_to_port[dpid][src_ip] = in_port # record it!
-            if dst_ip in self.dpid_ip_to_port[dpid]:
-                out_port = self.dpid_ip_to_port[dpid][dst_ip]
-            else:
-                out_port = ofproto.OFPP_FLOOD
-            data = msg.data
-            self.flowDispatcher.packet_out(datapath, in_port, out_port, data, None)
+            # self.dpid_ip_to_port.setdefault(dpid,{})
+            # self.dpid_ip_to_port[dpid][src_ip] = in_port # record it!
+            # if dst_ip in self.dpid_ip_to_port[dpid]:
+            #     out_port = self.dpid_ip_to_port[dpid][dst_ip]
+            # else:
+            #     out_port = ofproto.OFPP_FLOOD
+            # data = msg.data
+            # self.flowDispatcher.packet_out(datapath, in_port, out_port, data, None)
+            icmp_pkt = pkt.get_protocol(icmp.icmp)
+            if isinstance(icmp_pkt,icmp.icmp):
+                if in_port in self.access_port[dpid]:
+                    src_sw = self._get_host_location(src_ip)
+                    dst_sw = self._get_host_location(dst_ip)
+                    if src_sw and dst_sw:
+                        src_dpid = src_sw[0]
+                        dst_dpid = dst_sw[0]
+                        src_in_port = src_sw[1]
+                        dst_out_port = dst_sw[1]
+                        if src_dpid == dst_dpid: # belongs to same dpid
+                            print("src_dpid == dst_dpid:",src_dpid)
+                            priority = OFP_DEFAULT_PRIORITY
+                            if buffer_id != ofproto.OFP_NO_BUFFER:
+                                print("buffer_id != ofproto.OFP_NO_BUFFER:")
+                                match = {
+                                        "dl_type":ether_types.ETH_TYPE_IP,
+                                        "in_port":in_port,
+                                        "nw_dst":dst_ip,
+                                        }
+                                actions = [{"type":"OUTPUT","port":dst_out_port}]
+                                self.flowDispatcher.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
+                            else:
+                                print("buffer_id == ofproto.OFP_NO_BUFFER:")
+                                match = {
+                                        "dl_type":ether_types.ETH_TYPE_IP,
+                                        "in_port":in_port,
+                                        "nw_dst":dst_ip,
+                                        }
+                                actions = [{"type":"OUTPUT","port":dst_out_port}]
+                                self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
+                                data = msg.data
+                                self.flowDispatcher.packet_out(datapath, in_port, dst_out_port, data)
+                        else:
+                            traffic = self.get_traffic(src_dpid,dst_dpid)
+                            if traffic:
+                                self.install_flow(traffic,src_in_port,dst_out_port)
 
+    def register_access_info(self, dpid, ip, port):
 
+        if port in self.access_port[dpid]:
+            print("dpid:",dpid)
+            print("ip:",ip)
+            print("port:",port)
+            self.access_table[(dpid,port)] = ip
+
+    def _get_host_location(self,ip):
+        for sw in self.access_table.keys():
+            if self.access_table[sw] == ip:
+                return sw
+        return None
+    def get_traffic(self,src_dpid, dst_dpid):
+        traffic = []
+        return traffic
+
+    def install_flow(self,traffic,src_in_port, dst_out_port):
+        pass
 
 
 

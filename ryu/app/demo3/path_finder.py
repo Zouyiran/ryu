@@ -24,6 +24,7 @@ class PathFinder(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(PathFinder, self).__init__(*args, **kwargs)
+        self.name = 'PathFinder'
         self.flowDispatcher = FlowDispatcher()
 
         # {dpid:{port:mac,port:mac,...},dpid:{port:mac,port:mac,...},...} only switches'mac
@@ -53,6 +54,8 @@ class PathFinder(app_manager.RyuApp):
         self.dpid_to_dp = dict()
 
         self.SLEEP_PERIOD = 10 #seconds
+
+        self.dpids_to_access_port = dict()
 
         self.network_aware_thread = hub.spawn(self.network_aware)
 
@@ -89,6 +92,7 @@ class PathFinder(app_manager.RyuApp):
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
                 self.path_table = self._get_path_table(self.adjacency_matrix)
+                self.dpids_to_access_port = self._get_access_port(self.links_dpid_to_port, self.dpids_port_to_mac)
 
                 self._show_dpids()
                 self._show_links()
@@ -98,6 +102,28 @@ class PathFinder(app_manager.RyuApp):
                 self._show_links_dpid_to_port()
                 self._show_matrix()
                 self._show_path_table()
+                self._show_dpids_to_access_port()
+
+    def _get_access_port(self,links_dpid_to_port, dpids_port_to_mac):
+        table = dict()
+        for dpid in dpids_port_to_mac.keys():
+            table.setdefault(dpid,[])
+            all_ports = self.dpids_port_to_mac[dpid].keys()
+            interior_ports = []
+            for dpid_pair in links_dpid_to_port.keys():
+                if dpid_pair[0] == dpid:
+                    port = links_dpid_to_port[dpid_pair][0]
+                    if port not in interior_ports:
+                        interior_ports.append(port)
+                elif dpid_pair[1] == dpid:
+                    port = links_dpid_to_port[dpid_pair][1]
+                    if port not in interior_ports:
+                        interior_ports.append(port)
+            for each_port in all_ports:
+                if each_port not in interior_ports:
+                    table[dpid].append(each_port)
+        return table # {dpid:[1],dpid:[1,2],dpid:[4],...}
+
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
@@ -245,6 +271,7 @@ class PathFinder(app_manager.RyuApp):
             print "dpid:",dpid
             for port in self.dpids_port_to_mac[dpid].keys():
                 print "port:",port,"->","mac",self.dpids_port_to_mac[dpid][port]
+        print""
 
     def _show_dpid_port_to_host(self):
         print "----------------------dpid_port_to_host--------------------"
@@ -252,8 +279,18 @@ class PathFinder(app_manager.RyuApp):
             print "dpid:",dpid
             for port in self.dpids_port_to_host[dpid].keys():
                 print "port:",port,"->","host",self.dpids_port_to_host[dpid][port]
+        print""
 
     def _show_links_dpid_to_port(self):
         print "----------------------links_dpid_to_port--------------------"
         for each in self.links_dpid_to_port:
             print "link_dpid:",each,"->","link_port:",self.links_dpid_to_port[each]
+        print""
+
+    def _show_dpids_to_access_port(self):
+        print "----------------------dpids_to_access_port--------------------"
+        for dpid in self.dpids_to_access_port:
+            print "dpid:",dpid
+            for port in self.dpids_to_access_port[dpid]:
+                print port,
+            print ""
