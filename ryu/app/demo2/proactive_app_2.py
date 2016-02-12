@@ -1,10 +1,11 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import copy
 
 import networkx as nx
 
-from ryu.app.demo2.flow_dispatcher import FlowDispatcher
+from flow_dispatcher import FlowDispatcher
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -28,11 +29,11 @@ class ProactiveApp(app_manager.RyuApp):
     '''
 
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    _CONTEXTS = {'stplib': stplib.Stp}
+    # _CONTEXTS = {'stplib': stplib.Stp}
 
     def __init__(self, *args, **kwargs):
         super(ProactiveApp, self).__init__(*args, **kwargs)
-        self.stp = kwargs['stplib']
+        # self.stp = kwargs['stplib']
 
         # Sample of stplib config.
         #  please refer to stplib.Stp.set_config() for details.

@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import copy
-
 import networkx as nx
 
-from ryu.app.demo3.flow_dispatch import FlowDispatcher
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -19,6 +17,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.topology.api import get_all_switch, get_all_link, get_all_host
 
+from flow_dispatcher import FlowDispatcher
 
 class PathFinder(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -27,17 +26,20 @@ class PathFinder(app_manager.RyuApp):
         super(PathFinder, self).__init__(*args, **kwargs)
         self.flowDispatcher = FlowDispatcher()
 
-        # {dpid:{port:mac,port:mac,...},dpid:{port:mac,port:mac,...},...}
+        # {dpid:{port:mac,port:mac,...},dpid:{port:mac,port:mac,...},...} only switches'mac
         self.dpids_port_to_mac = dict()
         # [dpid,dpid,...]
         self.dpids = list()
+
+        # {dpid:{port:host,port:host,...},dpid:{port:host,port:host,...},...} only hosts'mac
+        self.dpids_port_to_host = dict()
+        #[host_mac,host_mac,host_mac,...]
+        self.hosts = list()
 
         #{(src_dpid,dst_dpid):(src_port,dst_port),():(),...}
         self.links_dpid_to_port = dict()
         # [(src_dpid,dst_dpid),(src_dpid,dst_dpid),...]
         self.links = list()
-
-        self.hosts = list()
 
         self.adjacency_matrix = dict()
         self.pre_adjacency_matrix = dict()
@@ -47,6 +49,8 @@ class PathFinder(app_manager.RyuApp):
         # (dpid,dpid):{xxx:[dpid,dpid,dpid],xxx:[dpid,dpid,dpid,dpid],...},
         # ...}
         self.path_table = dict()
+
+        self.dpid_to_dp = dict()
 
         self.SLEEP_PERIOD = 10 #seconds
 
@@ -64,6 +68,17 @@ class PathFinder(app_manager.RyuApp):
                                           ofproto.OFPCML_NO_BUFFER)]
         self.flowDispatcher.add_flow(datapath, 0, match, actions)
 
+    @set_ev_cls(ofp_event.EventOFPStateChange,[MAIN_DISPATCHER, DEAD_DISPATCHER])
+    def state_change_handler(self, ev):
+        datapath = ev.datapath
+        if ev.state == MAIN_DISPATCHER:
+            if not datapath.id in self.dpid_to_dp:
+                self.logger.info('register datapath: %04x', datapath.id)
+                self.dpid_to_dp[datapath.id] = datapath
+        elif ev.state == DEAD_DISPATCHER:
+            if datapath.id in self.dpid_to_dp:
+                self.logger.info('un register datapath: %04x', datapath.id)
+                del self.dpid_to_dp[datapath.id]
 
     def network_aware(self):
         while True:
@@ -74,13 +89,15 @@ class PathFinder(app_manager.RyuApp):
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
                 self.path_table = self._get_path_table(self.adjacency_matrix)
-            # self._show_dpids()
-            # self._show_links()
-            # # self._show_hosts()
-            # self._show_dpid_port_to_mac()
-            # self._show_links_dpid_to_port()
-            # self._show_matrix()
-            # self._show_path_table()
+
+                self._show_dpids()
+                self._show_links()
+                self._show_hosts()
+                self._show_dpid_port_to_mac()
+                self._show_dpid_port_to_host()
+                self._show_links_dpid_to_port()
+                self._show_matrix()
+                self._show_path_table()
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
@@ -136,17 +153,24 @@ class PathFinder(app_manager.RyuApp):
     def _update_hosts(self):
         host_list = get_all_host(self)
         if host_list:
-            print("host_lists!!!!!!!!!!!!!!!")
-            self._get_hosts(host_list)
+            self.dpids_port_to_host = self._get_dpids_port_to_host(host_list)
+            self.hosts = self._get_hosts(host_list)
 
-    def _get_hosts(self,host_list):
+    def _get_dpids_port_to_host(self,host_list):
+        table = dict()
         for host in host_list:
             host_mac = host.mac
-            host_port = host.port
+            host_port = host.port # Port
             dpid = host_port.dpid
-            if dpid in self.dpids_port_to_mac.keys():
-                self.dpids_port_to_mac[dpid][host_port] = host_mac
-                self.hosts.append(host_mac)
+            table.setdefault(dpid,{})
+            table[dpid][host_port.port_no] = host_mac
+        return table
+
+    def _get_hosts(self,host_list):
+        hosts = list()
+        for host in host_list:
+            hosts.append(host.mac)
+        return hosts
 
     def _get_path_table(self, matrix):
         if matrix:
@@ -221,6 +245,13 @@ class PathFinder(app_manager.RyuApp):
             print "dpid:",dpid
             for port in self.dpids_port_to_mac[dpid].keys():
                 print "port:",port,"->","mac",self.dpids_port_to_mac[dpid][port]
+
+    def _show_dpid_port_to_host(self):
+        print "----------------------dpid_port_to_host--------------------"
+        for dpid in self.dpids_port_to_host.keys():
+            print "dpid:",dpid
+            for port in self.dpids_port_to_host[dpid].keys():
+                print "port:",port,"->","host",self.dpids_port_to_host[dpid][port]
 
     def _show_links_dpid_to_port(self):
         print "----------------------links_dpid_to_port--------------------"
