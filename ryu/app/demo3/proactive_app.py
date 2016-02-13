@@ -21,22 +21,21 @@ import  path_finder
 class ProactiveApp(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
-        "PathFinder": path_finder.PathFinder
+        'PathFinder': path_finder.PathFinder
     }
 
     def __init__(self, *args, **kwargs):
         super(ProactiveApp, self).__init__(*args, **kwargs)
-        self.path_finder = kwargs["PathFinder"]
+        self.path_finder = kwargs['PathFinder']
         self.flowDispatcher = FlowDispatcher()
 
-        self.dpid_to_dp = self.path_finder.dpid_to_dp
-        self.path_table = self.path_finder.path_table
-        self.dpids = self.path_finder.dpids
-        self.access_port = self.path_finder.dpids_to_access_port
+        # self.dpid_to_dp = self.path_finder.dpid_to_dp
+        # self.path_table = self.path_finder.path_table
+        # self.dpids = self.path_finder.dpids
+        # self.access_port = self.path_finder.dpids_to_access_port
 
         self.dpid_ip_to_port = dict()
         self.access_table = dict()
-
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
@@ -83,7 +82,7 @@ class ProactiveApp(app_manager.RyuApp):
             # self.flowDispatcher.packet_out(datapath, in_port, out_port, data, None)
             icmp_pkt = pkt.get_protocol(icmp.icmp)
             if isinstance(icmp_pkt,icmp.icmp):
-                if in_port in self.access_port[dpid]:
+                if in_port in self.path_finder.dpids_to_access_port[dpid]:
                     src_sw = self._get_host_location(src_ip)
                     dst_sw = self._get_host_location(dst_ip)
                     if src_sw and dst_sw:
@@ -95,7 +94,6 @@ class ProactiveApp(app_manager.RyuApp):
                             print("src_dpid == dst_dpid:",src_dpid)
                             priority = OFP_DEFAULT_PRIORITY
                             if buffer_id != ofproto.OFP_NO_BUFFER:
-                                print("buffer_id != ofproto.OFP_NO_BUFFER:")
                                 match = {
                                         "dl_type":ether_types.ETH_TYPE_IP,
                                         "in_port":in_port,
@@ -104,7 +102,6 @@ class ProactiveApp(app_manager.RyuApp):
                                 actions = [{"type":"OUTPUT","port":dst_out_port}]
                                 self.flowDispatcher.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
                             else:
-                                print("buffer_id == ofproto.OFP_NO_BUFFER:")
                                 match = {
                                         "dl_type":ether_types.ETH_TYPE_IP,
                                         "in_port":in_port,
@@ -113,18 +110,15 @@ class ProactiveApp(app_manager.RyuApp):
                                 actions = [{"type":"OUTPUT","port":dst_out_port}]
                                 self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
                                 data = msg.data
-                                self.flowDispatcher.packet_out(datapath, in_port, dst_out_port, data)
+                                self.flowDispatcher.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
                         else:
-                            traffic = self.get_traffic(src_dpid,dst_dpid)
+                            print("src_dpid != dst_dpid:",src_dpid)
+                            traffic = self.get_traffic(src_dpid,dst_dpid) # reachable
                             if traffic:
-                                self.install_flow(traffic,src_in_port,dst_out_port)
+                                self.install_flow(traffic,dst_ip,src_in_port,dst_out_port,buffer_id,ofproto,msg)
 
     def register_access_info(self, dpid, ip, port):
-
-        if port in self.access_port[dpid]:
-            print("dpid:",dpid)
-            print("ip:",ip)
-            print("port:",port)
+        if port in self.path_finder.dpids_to_access_port[dpid]: # {1: [4], 2: [], 3: [], 4: [2, 3], 5: [2, 3], 6: [2, 3]}
             self.access_table[(dpid,port)] = ip
 
     def _get_host_location(self,ip):
@@ -132,12 +126,65 @@ class ProactiveApp(app_manager.RyuApp):
             if self.access_table[sw] == ip:
                 return sw
         return None
+
     def get_traffic(self,src_dpid, dst_dpid):
         traffic = []
+        all_traffic = self.path_finder.path_table[(src_dpid,dst_dpid)]
+        if all_traffic:
+            traffic = all_traffic[0] #TODO
         return traffic
 
-    def install_flow(self,traffic,src_in_port, dst_out_port):
-        pass
+    def install_flow(self, traffic, dst_ip, src_in_port, dst_out_port, buffer_id, ofproto, msg):
+        n = len(traffic)
+        for i in range(n): # 0,1,.., n-1
+            j = n - 1 - i # n-1,n-2,...,0
+            dpid = traffic[j]
+            if j == n - 1: # dst_dpid
+                priority = OFP_DEFAULT_PRIORITY
+                in_port = self.path_finder.links_dpid_to_port[(traffic[j-1],traffic[j])][1]
+                match = {
+                        "dl_type":ether_types.ETH_TYPE_IP,
+                        "in_port":in_port,
+                        "nw_dst":dst_ip,
+                        }
+                actions = [{"type":"OUTPUT","port":dst_out_port}]
+                self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
+            elif j == 0: # src_dpid
+                priority = OFP_DEFAULT_PRIORITY
+                if buffer_id != ofproto.OFP_NO_BUFFER:
+                    match = {
+                            "dl_type":ether_types.ETH_TYPE_IP,
+                            "in_port":src_in_port,
+                            "nw_dst":dst_ip,
+                            }
+                    out_port = self.path_finder.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
+                    actions = [{"type":"OUTPUT","port":out_port}]
+                    self.flowDispatcher.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
+                else:
+                    match = {
+                            "dl_type":ether_types.ETH_TYPE_IP,
+                            "in_port":src_in_port,
+                            "nw_dst":dst_ip,
+                            }
+                    out_port = self.path_finder.links_dpid_to_port[(traffic[0],traffic[1])][0]
+                    actions = [{"type":"OUTPUT","port":out_port}]
+                    self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
+                    data = msg.data
+                    self.flowDispatcher.packet_out(self.path_finder.dpid_to_dp[dpid], src_in_port, out_port, data, buffer_id)
+            else:
+                priority = OFP_DEFAULT_PRIORITY
+                in_port = self.path_finder.links_dpid_to_port[(traffic[j-1],traffic[j])][1]
+                out_port = self.path_finder.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
+                match = {
+                        "dl_type":ether_types.ETH_TYPE_IP,
+                        "in_port":in_port,
+                        "nw_dst":dst_ip,
+                        }
+                actions = [{"type":"OUTPUT","port":out_port}]
+                self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
+
+
+
 
 
 
