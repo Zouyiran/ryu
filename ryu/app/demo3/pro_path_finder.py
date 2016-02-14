@@ -32,7 +32,7 @@ class PathFinder(app_manager.RyuApp):
         # [dpid,dpid,...]
         self.dpids = list()
 
-        # {dpid:{port:host,port:host,...},dpid:{port:host,port:host,...},...} only hosts'mac
+        # {(dpid,port):host_mac,(dpid,port):host_mac,...} only hosts'mac
         self.dpids_port_to_host = dict()
         #[host_mac,host_mac,host_mac,...]
         self.hosts = list()
@@ -56,6 +56,9 @@ class PathFinder(app_manager.RyuApp):
         self.SLEEP_PERIOD = 10 #seconds
 
         self.dpids_to_access_port = dict()
+
+        self.LABEL = 0
+        self.mpls_to_path = dict()
 
         self.network_aware_thread = hub.spawn(self.network_aware)
 
@@ -88,21 +91,51 @@ class PathFinder(app_manager.RyuApp):
             hub.sleep(self.SLEEP_PERIOD)
             self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
             self._update_topology()
-            self._update_hosts()
+            # self._update_hosts()
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
                 self.path_table = self._get_path_table(self.adjacency_matrix)
+                self.pre_install_flow(self.path_table)
                 self.dpids_to_access_port = self._get_access_port(self.links_dpid_to_port, self.dpids_port_to_mac)
 
                 self._show_dpids()
                 self._show_links()
-                self._show_hosts()
+                # self._show_hosts()
                 self._show_dpid_port_to_mac()
-                self._show_dpid_port_to_host()
+                # self._show_dpid_port_to_host()
                 self._show_links_dpid_to_port()
                 self._show_matrix()
                 self._show_path_table()
-                self._show_dpids_to_access_port()
+
+    def pre_install_flow(self,path_table):
+        print("...................pre_install_flow..................")
+        for path_pair in path_table.keys():
+            paths = path_table[path_pair]
+            path_num = len(paths)
+            if path_num > 0:
+                for path in paths:
+                    n = len(path)
+                    if n > 2:
+                        self.mpls_to_path[self.LABEL] = path # record its mpls label
+                        self.__install_flow(path,self.LABEL)
+                        self.LABEL += 1
+
+    def __install_flow(self, path, label):
+        n = len(path)
+        if n >2:
+            for i in range(1,n-1):
+                dpid = path[i]
+                priority = OFP_DEFAULT_PRIORITY # 32768 or 0x8000
+                in_port = self.links_dpid_to_port[(path[i-1],path[i])][1]
+                out_port = self.links_dpid_to_port[(path[i],path[i+1])][0]
+                match = {
+                        "dl_type":ether_types.ETH_TYPE_MPLS,
+                        "in_port":in_port,
+                        "mpls_label":label,
+                        }
+                actions = [{"type":"OUTPUT","port":out_port}]
+                self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
+
 
     def _get_access_port(self,links_dpid_to_port, dpids_port_to_mac):
         table = dict()
@@ -188,8 +221,7 @@ class PathFinder(app_manager.RyuApp):
             host_mac = host.mac
             host_port = host.port # Port
             dpid = host_port.dpid
-            table.setdefault(dpid,{})
-            table[dpid][host_port.port_no] = host_mac
+            table[(dpid,host_port.port_no)] = host_mac
         return table
 
     def _get_hosts(self,host_list):
@@ -209,7 +241,7 @@ class PathFinder(app_manager.RyuApp):
                         g.add_edge(i,j,weight=1)
             return self.__graph_to_path(g)
 
-    def __graph_to_path(self,g): # no mpls label
+    def __graph_to_path(self,g): # {(i,j):[[],[],...],(i,j):[[],[],[],..],...}
         all_shortest_paths = dict()
         for i in g.nodes():
             for j in g.nodes():
@@ -275,10 +307,8 @@ class PathFinder(app_manager.RyuApp):
 
     def _show_dpid_port_to_host(self):
         print "----------------------!dpid_port_to_host!--------------------"
-        for dpid in self.dpids_port_to_host.keys():
-            print "dpid:",dpid
-            for port in self.dpids_port_to_host[dpid].keys():
-                print "port:",port,"->","host",self.dpids_port_to_host[dpid][port]
+        for sw in self.dpids_port_to_host.keys():
+            print "(sw_dpid:",sw[0],",","sw_port:",sw[1],") ->","host_mac:",self.dpids_port_to_host[sw]
         print""
 
     def _show_links_dpid_to_port(self):
@@ -286,11 +316,3 @@ class PathFinder(app_manager.RyuApp):
         for each in self.links_dpid_to_port:
             print "link_dpid:",each,"->","link_port:",self.links_dpid_to_port[each]
         print""
-
-    def _show_dpids_to_access_port(self):
-        print "----------------------dpids_to_access_port--------------------"
-        for dpid in self.dpids_to_access_port:
-            print "dpid:",dpid
-            for port in self.dpids_to_access_port[dpid]:
-                print port,
-            print ""

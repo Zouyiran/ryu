@@ -12,7 +12,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 
 from flow_dispatcher import FlowDispatcher
-import  pro_path_finder
+import  re_path_finder
 
 
 class ReactiveApp(app_manager.RyuApp):
@@ -27,7 +27,7 @@ class ReactiveApp(app_manager.RyuApp):
     '''
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
-        'PathFinder': pro_path_finder.PathFinder,
+        'PathFinder': re_path_finder.PathFinder,
     }
 
     def __init__(self, *args, **kwargs):

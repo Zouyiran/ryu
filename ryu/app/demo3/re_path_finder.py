@@ -91,7 +91,6 @@ class PathFinder(app_manager.RyuApp):
                 self._show_dpids()
                 self._show_links()
                 self._show_dpid_port_to_mac()
-                self._show_dpid_port_to_host()
                 self._show_matrix()
                 self._show_path_table()
                 self._show_dpids_to_access_port()
