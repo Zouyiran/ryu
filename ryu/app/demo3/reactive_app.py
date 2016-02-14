@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import random
+
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -13,12 +15,15 @@ from flow_dispatcher import FlowDispatcher
 import  pro_path_finder
 
 
-class ProactiveApp(app_manager.RyuApp):
+class ReactiveApp(app_manager.RyuApp):
     '''
     on the Network Layer
-    proactive app:
-    using arp_info to pre_install flow along all the selected switches(one traffic)
-
+    reactive app:
+    when first data packet come in,
+    packet_in to the controller,
+    select one traffic,
+    install flow along all the switches,
+    and then packet out the data packet
     '''
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
@@ -26,7 +31,7 @@ class ProactiveApp(app_manager.RyuApp):
     }
 
     def __init__(self, *args, **kwargs):
-        super(ProactiveApp, self).__init__(*args, **kwargs)
+        super(ReactiveApp, self).__init__(*args, **kwargs)
         self.path_finder = kwargs['PathFinder']
         self.flowDispatcher = FlowDispatcher()
 
@@ -112,7 +117,8 @@ class ProactiveApp(app_manager.RyuApp):
         traffic = []
         all_traffic = self.path_finder.path_table[(src_dpid,dst_dpid)]
         if all_traffic:
-            traffic = all_traffic[0] #TODO
+            i = random.randint(0,len(all_traffic)-1)
+            traffic = all_traffic[i]
         return traffic
 
     def install_flow(self, traffic, dst_ip, src_in_port, dst_out_port, buffer_id, ofproto, msg):

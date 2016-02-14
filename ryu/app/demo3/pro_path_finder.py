@@ -247,15 +247,15 @@ class PathFinder(app_manager.RyuApp):
                 print each,
             print""
 
-    def _show_hosts(self):
-        print "---------------------hosts---------------------"
-        for each in self.hosts:
-            print each,
-        print""
-
     def _show_dpids(self):
         print "---------------------dpids---------------------"
         for each in self.dpids:
+            print each,
+        print""
+
+    def _show_hosts(self):
+        print "---------------------!hosts!---------------------"
+        for each in self.hosts:
             print each,
         print""
 
@@ -274,7 +274,7 @@ class PathFinder(app_manager.RyuApp):
         print""
 
     def _show_dpid_port_to_host(self):
-        print "----------------------dpid_port_to_host--------------------"
+        print "----------------------!dpid_port_to_host!--------------------"
         for dpid in self.dpids_port_to_host.keys():
             print "dpid:",dpid
             for port in self.dpids_port_to_host[dpid].keys():
