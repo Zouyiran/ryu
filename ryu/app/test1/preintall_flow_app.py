@@ -3,20 +3,64 @@
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
+from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
+from ryu.topology.api import get_all_switch, get_all_link, get_all_host
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
+from ryu.lib import hub
+import networkx as nx
 
 
-class SimpleSwitch13(app_manager.RyuApp):
+class PreinstallFlowApp(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(SimpleSwitch13, self).__init__(*args, **kwargs)
+        super(PreinstallFlowApp, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
+        self.discover_thread = hub.spawn(self.pre_install)
+
+        # {dpid:{port:mac,port:mac,...},dpid:{port:mac,port:mac,...},...} only switches'mac
+        self.dpids_port_to_mac = dict()
+        # [dpid,dpid,...]
+        self.dpids = list()
+
+        # {(dpid,port):host_mac,(dpid,port):host_mac,...} only hosts'mac
+        self.dpids_port_to_host = dict()
+        #[host_mac,host_mac,host_mac,...]
+        self.hosts = list()
+
+        #{(src_dpid,dst_dpid):(src_port,dst_port),():(),...}
+        self.links_dpid_to_port = dict()
+        # [(src_dpid,dst_dpid),(src_dpid,dst_dpid),...]
+        self.links = list()
+
+        self.adjacency_matrix = dict()
+
+        # {
+        # (dpid,dpid):{xxx:[dpid,dpid,dpid],xxx:[dpid,dpid,dpid,dpid],...},
+        # (dpid,dpid):{xxx:[dpid,dpid,dpid],xxx:[dpid,dpid,dpid,dpid],...},
+        # ...}
+        self.path_table = dict()
+
+        self.dpid_to_dp = dict()
+
+        self.SLEEP_PERIOD = 10 #seconds
+
+    @set_ev_cls(ofp_event.EventOFPStateChange,[MAIN_DISPATCHER, DEAD_DISPATCHER])
+    def state_change_handler(self, ev):
+        datapath = ev.datapath
+        if ev.state == MAIN_DISPATCHER:
+            if not datapath.id in self.dpid_to_dp:
+                self.logger.info('register datapath: %04x', datapath.id)
+                self.dpid_to_dp[datapath.id] = datapath
+        elif ev.state == DEAD_DISPATCHER:
+            if datapath.id in self.dpid_to_dp:
+                self.logger.info('un register datapath: %04x', datapath.id)
+                del self.dpid_to_dp[datapath.id]
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -25,12 +69,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         parser = datapath.ofproto_parser
 
         # install table-miss flow entry
-        #
-        # We specify NO BUFFER to max_len of the output action due to
-        # OVS bug. At this moment, if we specify a lesser number, e.g.,
-        # 128, OVS will send Packet-In with invalid buffer_id and
-        # truncated packet data. In that case, we cannot output packets
-        # correctly.  The bug has been fixed in OVS v2.1.0.
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
@@ -50,6 +88,162 @@ class SimpleSwitch13(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
+
+    def pre_install(self):
+        hub.sleep(self.SLEEP_PERIOD)
+        self._update_topology()
+        self._update_hosts()
+        self.path_table = self._get_path_table(self.adjacency_matrix)
+        self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
+        self.pre_install_flow()
+
+    def _update_topology(self):
+        switch_list = get_all_switch(self)
+        if switch_list:
+            self.dpids_port_to_mac = self._get_dpids_port_to_mac(switch_list)
+            self.dpids = self._get_dpids(switch_list) #[dpid,dpid,dpid,...]
+        link_dict = get_all_link(self)
+        if link_dict:
+            self.links_dpid_to_port = self._get_links_dpid_to_port(link_dict)
+            self.links = self._get_links(self.links_dpid_to_port) #[(src.dpid,dst.dpid),(src.dpid,dst.dpid),...]
+        if self.dpids and self.links:
+            self.adjacency_matrix = self._get_adjacency_matrix(self.dpids, self.links)
+
+    def _get_dpids_port_to_mac(self,switch_list):
+        table = dict()
+        for switch in switch_list:
+            dpid = switch.dp.id
+            table.setdefault(dpid,{})
+            ports = switch.ports
+            for port in ports:
+                table[dpid][port.port_no] =  port.hw_addr
+        return table
+
+    def _get_dpids(self,switch_list):
+        dpid_list = list()
+        for switch in switch_list:
+            dpid_list.append(switch.dp.id)
+        return dpid_list
+
+    def _get_links(self,link_ports_table):
+        return link_ports_table.keys()
+
+    def _get_links_dpid_to_port(self,link_dict):
+        table = dict()
+        for link in link_dict.keys():
+            src = link.src #ryu.topology.switches.Port
+            dst = link.dst
+            table[(src.dpid,dst.dpid)] = (src.port_no, dst.port_no)
+        return table
+
+    def _get_adjacency_matrix(self,dpids,links):
+        graph = dict()
+        for src in dpids:
+            graph[src] = dict()
+            for dst in dpids:
+                graph[src][dst] = float('inf')
+                if src == dst:
+                    graph[src][dst] = 0
+                elif (src, dst) in links:
+                    graph[src][dst] = 1
+        return graph
+
+    def _get_path_table(self, matrix):
+        if matrix:
+            dpids = matrix.keys()
+            g = nx.Graph()
+            g.add_nodes_from(dpids)
+            for i in dpids:
+                for j in dpids:
+                    if matrix[i][j] == 1:
+                        g.add_edge(i,j,weight=1)
+            return self.__graph_to_path(g)
+
+    def __graph_to_path(self,g): # {(i,j):[[],[],...],(i,j):[[],[],[],..],...}
+        all_shortest_paths = dict()
+        for i in g.nodes():
+            for j in g.nodes():
+                if i == j:
+                    continue
+                all_shortest_paths[(i,j)] = list()
+                try:
+                    nx.shortest_path(g,i,j)
+                except nx.exception.NetworkXNoPath:
+                    continue
+                for each in nx.all_shortest_paths(g,i,j):
+                    all_shortest_paths[(i,j)].append(each)
+        return all_shortest_paths
+
+    def _update_hosts(self):
+        host_list = get_all_host(self)
+        if host_list:
+            self.dpids_port_to_host = self._get_dpids_port_to_host(host_list)
+            self.hosts = self._get_hosts(host_list)
+
+    def _get_dpids_port_to_host(self,host_list):
+        table = dict()
+        for host in host_list:
+            host_mac = host.mac
+            host_port = host.port # Port
+            dpid = host_port.dpid
+            table[(dpid,host_port.port_no)] = host_mac
+        return table
+
+    def _get_hosts(self,host_list):
+        hosts = list()
+        for host in host_list:
+            hosts.append(host.mac)
+        return hosts
+
+    def pre_install_flow(self):
+        assert len(self.hosts) == 2
+        host1 = self.hosts[0]
+        host2 = self.hosts[1]
+        self._pre_install_flow(host1,host2)
+        self._pre_install_flow(host2,host1)
+
+    def _pre_install_flow(self,host1,host2):
+        host1_dpid = None
+        host2_dpid = None
+        host1_port = None
+        host2_port = None
+        for dpid_port in self.dpids_port_to_host.keys():
+                if self.dpids_port_to_host[dpid_port] == host1:
+                    host1_dpid = dpid_port[0]
+                    host1_port = dpid_port[1]
+                elif self.dpids_port_to_host[dpid_port] == host2:
+                    host2_dpid = dpid_port[0]
+                    host2_port = dpid_port[1]
+        if host1_dpid == host2_dpid:
+            datapath = self.dpid_to_dp[host1_dpid]
+            parser =  datapath.ofproto_parser
+            priority = OFP_DEFAULT_PRIORITY
+            match = parser.OFPMatch(in_port=host1_port) # , eth_dst=host2
+            actions = [parser.OFPActionOutput(host2_port)]
+            self.add_flow(datapath, priority, match, actions)
+        else:
+            traffic = self.path_table[(host1_dpid,host2_dpid)][0]
+            length = len(traffic)
+            for i in range(length):
+                datapath = self.dpid_to_dp[traffic[i]]
+                parser = datapath.ofproto_parser
+                priority = OFP_DEFAULT_PRIORITY
+                if i == 0:
+                    match = parser.OFPMatch(in_port=host1_port) # , eth_dst=host2
+                    out_port = self.links_dpid_to_port[(traffic[i],traffic[i+1])][0]
+                    actions = [parser.OFPActionOutput(out_port)]
+                    self.add_flow(datapath, priority, match, actions)
+                elif i == length -1:
+                    in_port = self.links_dpid_to_port[(traffic[i-1],traffic[i])][1]
+                    match = parser.OFPMatch(in_port=in_port) # , eth_dst=host2
+                    actions = [parser.OFPActionOutput(host2_port)]
+                    self.add_flow(datapath, priority, match, actions)
+                else:
+                    in_port = self.links_dpid_to_port[(traffic[i-1],traffic[i])][1]
+                    out_port = self.links_dpid_to_port[(traffic[i],traffic[i+1])][0]
+                    match = parser.OFPMatch(in_port=in_port) # , eth_dst=host2
+                    actions = [parser.OFPActionOutput(out_port)]
+                    self.add_flow(datapath, priority, match, actions)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -87,17 +281,6 @@ class SimpleSwitch13(app_manager.RyuApp):
             out_port = ofproto.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
-
-        # install a flow to avoid packet_in next time
-        if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
-            # verify if we have a valid buffer_id, if yes avoid to send both
-            # flow_mod & packet_out
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                return
-            else:
-                self.add_flow(datapath, 1, match, actions)
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data

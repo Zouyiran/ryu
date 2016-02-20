@@ -28,11 +28,11 @@ class CustomTopo(Topo):
         for count in range(self.switch_num): #
             delay = random.randint(0,20)
             if count == self.switch_num - 1:
-                self.addLink(switches[0],hosts[0],delay=str(delay)+"ms")
+                self.addLink(switches[0],hosts[0],delay=str(delay)+"ms") #
                 delay = random.randint(0,20)
-                self.addLink(switches[self.switch_num-1],hosts[1],delay=str(delay)+"ms")
+                self.addLink(switches[self.switch_num-1],hosts[1],delay=str(delay)+"ms") #
             else:
-                self.addLink(switches[count],switches[count+1],delay=str(delay)+"ms")
+                self.addLink(switches[count],switches[count+1],delay=str(delay)+"ms") #
 
 
 #  create a custom switch extends OVSSwitch
@@ -59,6 +59,7 @@ def main():
                        port=CONTROLLER_PORT)
 
     net.start()
+    # net.pingAll()
     CLI(net)
     net.stop()
 
