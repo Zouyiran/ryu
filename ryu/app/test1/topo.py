@@ -49,7 +49,7 @@ CONTROLLER_IP = "127.0.0.1"
 CONTROLLER_PORT = 6633
 
 def main():
-    topo = CustomTopo(4)
+    topo = CustomTopo(8)
     net = Mininet(topo=topo,
                   link=TCLink,
                   switch=CustomSwitch,

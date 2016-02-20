@@ -92,8 +92,8 @@ class PreinstallFlowApp(app_manager.RyuApp):
         datapath.send_msg(mod)
 
     def pre_install(self):
+        # self.logger.info('***********pre_install***********')
         while True:
-            self.logger.info('***********pre_install***********')
             hub.sleep(self.SLEEP_PERIOD)
             self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
             self._update_topology()
@@ -182,6 +182,7 @@ class PreinstallFlowApp(app_manager.RyuApp):
 
     def _update_hosts(self):
         host_list = get_all_host(self)
+        print(host_list)
         if host_list:
             self.dpids_port_to_host = self._get_dpids_port_to_host(host_list)
             self.hosts = self._get_hosts(host_list)
