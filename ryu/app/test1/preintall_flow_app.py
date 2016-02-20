@@ -13,6 +13,7 @@ from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
 from ryu.lib import hub
 import networkx as nx
+import copy
 
 
 class PreinstallFlowApp(app_manager.RyuApp):
@@ -39,6 +40,7 @@ class PreinstallFlowApp(app_manager.RyuApp):
         self.links = list()
 
         self.adjacency_matrix = dict()
+        self.pre_adjacency_matrix = dict()
 
         # {
         # (dpid,dpid):{xxx:[dpid,dpid,dpid],xxx:[dpid,dpid,dpid,dpid],...},
@@ -48,7 +50,7 @@ class PreinstallFlowApp(app_manager.RyuApp):
 
         self.dpid_to_dp = dict()
 
-        self.SLEEP_PERIOD = 10 #seconds
+        self.SLEEP_PERIOD = 4 #seconds
 
     @set_ev_cls(ofp_event.EventOFPStateChange,[MAIN_DISPATCHER, DEAD_DISPATCHER])
     def state_change_handler(self, ev):
@@ -90,12 +92,16 @@ class PreinstallFlowApp(app_manager.RyuApp):
         datapath.send_msg(mod)
 
     def pre_install(self):
-        hub.sleep(self.SLEEP_PERIOD)
-        self._update_topology()
-        self._update_hosts()
-        self.path_table = self._get_path_table(self.adjacency_matrix)
-        self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
-        self.pre_install_flow()
+        while True:
+            self.logger.info('***********pre_install***********')
+            hub.sleep(self.SLEEP_PERIOD)
+            self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
+            self._update_topology()
+            self._update_hosts()
+            if self.pre_adjacency_matrix != self.adjacency_matrix:
+                self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
+                self.path_table = self._get_path_table(self.adjacency_matrix)
+                self.pre_install_flow()
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
@@ -196,11 +202,12 @@ class PreinstallFlowApp(app_manager.RyuApp):
         return hosts
 
     def pre_install_flow(self):
-        assert len(self.hosts) == 2
-        host1 = self.hosts[0]
-        host2 = self.hosts[1]
-        self._pre_install_flow(host1,host2)
-        self._pre_install_flow(host2,host1)
+        print("len hosts:",len(self.hosts))
+        if len(self.hosts) == 2:
+            host1 = self.hosts[0]
+            host2 = self.hosts[1]
+            self._pre_install_flow(host1,host2)
+            self._pre_install_flow(host2,host1)
 
     def _pre_install_flow(self,host1,host2):
         host1_dpid = None
@@ -270,7 +277,7 @@ class PreinstallFlowApp(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+        # self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port

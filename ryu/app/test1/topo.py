@@ -8,6 +8,7 @@ from mininet.topo import Topo
 import logging
 import os
 import random
+import time
 
 
 class CustomTopo(Topo):
@@ -26,10 +27,10 @@ class CustomTopo(Topo):
         hosts.append(self.addHost('h2',mac='00:00:00:00:00:02'))
 
         for count in range(self.switch_num): #
-            delay = random.randint(0,20)
+            delay = random.randint(0,10)
             if count == self.switch_num - 1:
                 self.addLink(switches[0],hosts[0],delay=str(delay)+"ms") #
-                delay = random.randint(0,20)
+                delay = random.randint(0,10)
                 self.addLink(switches[self.switch_num-1],hosts[1],delay=str(delay)+"ms") #
             else:
                 self.addLink(switches[count],switches[count+1],delay=str(delay)+"ms") #
@@ -48,7 +49,7 @@ CONTROLLER_IP = "127.0.0.1"
 CONTROLLER_PORT = 6633
 
 def main():
-    topo = CustomTopo(10)
+    topo = CustomTopo(4)
     net = Mininet(topo=topo,
                   link=TCLink,
                   switch=CustomSwitch,
@@ -59,7 +60,6 @@ def main():
                        port=CONTROLLER_PORT)
 
     net.start()
-    # net.pingAll()
     CLI(net)
     net.stop()
 
