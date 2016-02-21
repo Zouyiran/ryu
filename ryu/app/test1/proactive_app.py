@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import networkx as nx
+import copy
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -9,18 +11,16 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.topology.api import get_all_switch, get_all_link, get_all_host
 from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
+from ryu.lib.packet import ethernet, arp, icmp
 from ryu.lib.packet import ether_types
 from ryu.lib import hub
-import networkx as nx
-import copy
 
 
-class PreinstallFlowApp(app_manager.RyuApp):
+class ProactiveApp(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(PreinstallFlowApp, self).__init__(*args, **kwargs)
+        super(ProactiveApp, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
         self.discover_thread = hub.spawn(self.pre_install)
 
@@ -92,7 +92,6 @@ class PreinstallFlowApp(app_manager.RyuApp):
         datapath.send_msg(mod)
 
     def pre_install(self):
-        # self.logger.info('***********pre_install***********')
         while True:
             hub.sleep(self.SLEEP_PERIOD)
             self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
@@ -105,11 +104,11 @@ class PreinstallFlowApp(app_manager.RyuApp):
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
-        if switch_list:
+        if len(switch_list) != 0:
             self.dpids_port_to_mac = self._get_dpids_port_to_mac(switch_list)
             self.dpids = self._get_dpids(switch_list) #[dpid,dpid,dpid,...]
         link_dict = get_all_link(self)
-        if link_dict:
+        if len(link_dict) != 0:
             self.links_dpid_to_port = self._get_links_dpid_to_port(link_dict)
             self.links = self._get_links(self.links_dpid_to_port) #[(src.dpid,dst.dpid),(src.dpid,dst.dpid),...]
         if self.dpids and self.links:
@@ -182,7 +181,6 @@ class PreinstallFlowApp(app_manager.RyuApp):
 
     def _update_hosts(self):
         host_list = get_all_host(self)
-        print(host_list)
         if host_list:
             self.dpids_port_to_host = self._get_dpids_port_to_host(host_list)
             self.hosts = self._get_hosts(host_list)
@@ -203,8 +201,9 @@ class PreinstallFlowApp(app_manager.RyuApp):
         return hosts
 
     def pre_install_flow(self):
-        print("len hosts:",len(self.hosts))
+        print("execute pre-install flow")
         if len(self.hosts) == 2:
+            print("host num:",2)
             host1 = self.hosts[0]
             host2 = self.hosts[1]
             self._pre_install_flow(host1,host2)
@@ -274,6 +273,25 @@ class PreinstallFlowApp(app_manager.RyuApp):
             return
         dst = eth.dst
         src = eth.src
+        ar = pkt.get_protocol(arp.arp)
+        ic = pkt.get_protocol(icmp.icmp)
+
+        if isinstance(ar, arp.arp):
+            print("-----arp packet------")
+            print("dpid:",datapath.id)
+            print(pkt)
+            for each in self.mac_to_port:
+                print "dpid:",each
+                for a in self.mac_to_port[each]:
+                    print "mac:",a,"->","port:",self.mac_to_port[each][a]
+        if isinstance(ic, icmp.icmp):
+            print("-----icmp packet------")
+            print("dpid:",datapath.id)
+            print(pkt)
+            for each in self.mac_to_port:
+                print "dpid:",each
+                for a in self.mac_to_port[each]:
+                    print "mac:",a,"->","port:",self.mac_to_port[each][a]
 
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})

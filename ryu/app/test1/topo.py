@@ -27,13 +27,14 @@ class CustomTopo(Topo):
         hosts.append(self.addHost('h2',mac='00:00:00:00:00:02'))
 
         for count in range(self.switch_num): #
-            delay = random.randint(0,10)
             if count == self.switch_num - 1:
+                delay = random.randint(1,5)
                 self.addLink(switches[0],hosts[0],delay=str(delay)+"ms") #
-                delay = random.randint(0,10)
+                delay = random.randint(1,5)
                 self.addLink(switches[self.switch_num-1],hosts[1],delay=str(delay)+"ms") #
             else:
-                self.addLink(switches[count],switches[count+1],delay=str(delay)+"ms") #
+                delay = random.randint(1,5)
+                self.addLink(switches[count],switches[count+1],delay=str(delay)+"ms") #,delay=str(delay)+"ms"
 
 
 #  create a custom switch extends OVSSwitch
@@ -49,7 +50,7 @@ CONTROLLER_IP = "127.0.0.1"
 CONTROLLER_PORT = 6633
 
 def main():
-    topo = CustomTopo(8)
+    topo = CustomTopo(4)
     net = Mininet(topo=topo,
                   link=TCLink,
                   switch=CustomSwitch,

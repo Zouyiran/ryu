@@ -8,60 +8,60 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.lib import dpid as dpid_lib
-from ryu.lib.packet import ipv4
 from ryu.lib import hub
-from ryu.lib import stplib
 from ryu.lib.packet import packet, ethernet, arp, ether_types
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.topology.api import get_all_switch, get_all_link, get_all_host
 
-from flow_dispatcher import FlowDispatcher
+from flow_sender import FlowSender
 
-class PathFinder(app_manager.RyuApp):
+
+class PathCalculator(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(PathFinder, self).__init__(*args, **kwargs)
-        self.name = 'PathFinder'
-        self.flowDispatcher = FlowDispatcher()
+        super(PathCalculator, self).__init__(*args, **kwargs)
+        self.name = 'PathCalculator'
+        self.flowSender = FlowSender()
 
         # {dpid:{port:mac,port:mac,...},dpid:{port:mac,port:mac,...},...} only switches'mac
         self.dpids_port_to_mac = dict()
         # [dpid,dpid,...]
         self.dpids = list()
 
-        # {(dpid,port):host_mac,(dpid,port):host_mac,...} only hosts'mac
-        self.dpids_port_to_host = dict()
-        #[host_mac,host_mac,host_mac,...]
-        self.hosts = list()
+        # {dpid:dp, dpid:dp, dpid:dp,...}
+        self.dpid_to_dp = dict()
+
+        # {dpid:[1],dpid:[1,2],dpid:[4],...}
+        self.dpids_to_access_port = dict()
 
         #{(src_dpid,dst_dpid):(src_port,dst_port),():(),...}
         self.links_dpid_to_port = dict()
         # [(src_dpid,dst_dpid),(src_dpid,dst_dpid),...]
         self.links = list()
 
+        # {(dpid,port):host_mac,(dpid,port):host_mac,...} only hosts'mac
+        self.dpids_port_to_host = dict()
+        #[host_mac,host_mac,host_mac,...]
+        self.hosts = list()
+
         self.adjacency_matrix = dict()
         self.pre_adjacency_matrix = dict()
 
         # {
-        # (dpid,dpid):{xxx:[dpid,dpid,dpid],xxx:[dpid,dpid,dpid,dpid],...},
-        # (dpid,dpid):{xxx:[dpid,dpid,dpid],xxx:[dpid,dpid,dpid,dpid],...},
+        # (dpid,dpid):[[dpid,dpid,dpid],[dpid,dpid,dpid,dpid],...],
+        # (dpid,dpid):[[dpid,dpid,dpid],[dpid,dpid,dpid,dpid],...],
         # ...}
         self.path_table = dict()
 
-        self.dpid_to_dp = dict()
+        self.mpls_to_path = dict()
+
+        self.LABEL = 0
 
         self.SLEEP_PERIOD = 10 #seconds
 
-        self.dpids_to_access_port = dict()
-
-        self.LABEL = 0
-        self.mpls_to_path = dict()
-
         self.network_aware_thread = hub.spawn(self.network_aware)
-
 
     # install table-miss flow entry for each switch
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -72,7 +72,7 @@ class PathFinder(app_manager.RyuApp):
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
-        self.flowDispatcher.add_flow(datapath, 0, match, actions)
+        self.flowSender.add_flow(datapath, 0, match, actions)
 
     @set_ev_cls(ofp_event.EventOFPStateChange,[MAIN_DISPATCHER, DEAD_DISPATCHER])
     def state_change_handler(self, ev):
@@ -96,7 +96,6 @@ class PathFinder(app_manager.RyuApp):
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
                 self.path_table = self._get_path_table(self.adjacency_matrix)
                 self.pre_install_flow(self.path_table)
-                self.dpids_to_access_port = self._get_access_port(self.links_dpid_to_port, self.dpids_port_to_mac)
 
                 self._show_dpids()
                 self._show_links()
@@ -107,68 +106,19 @@ class PathFinder(app_manager.RyuApp):
                 self._show_matrix()
                 self._show_path_table()
 
-    def pre_install_flow(self,path_table):
-        print("...................pre_install_flow..................")
-        for path_pair in path_table.keys():
-            paths = path_table[path_pair]
-            path_num = len(paths)
-            if path_num > 0:
-                for path in paths:
-                    n = len(path)
-                    if n > 2:
-                        self.mpls_to_path[self.LABEL] = path # record its mpls label
-                        self.__install_flow(path,self.LABEL)
-                        self.LABEL += 1
-
-    def __install_flow(self, path, label):
-        n = len(path)
-        if n >2:
-            for i in range(1,n-1):
-                dpid = path[i]
-                priority = OFP_DEFAULT_PRIORITY # 32768 or 0x8000
-                in_port = self.links_dpid_to_port[(path[i-1],path[i])][1]
-                out_port = self.links_dpid_to_port[(path[i],path[i+1])][0]
-                match = {
-                        "dl_type":ether_types.ETH_TYPE_MPLS,
-                        "in_port":in_port,
-                        "mpls_label":label,
-                        }
-                actions = [{"type":"OUTPUT","port":out_port}]
-                self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
-
-
-    def _get_access_port(self,links_dpid_to_port, dpids_port_to_mac):
-        table = dict()
-        for dpid in dpids_port_to_mac.keys():
-            table.setdefault(dpid,[])
-            all_ports = self.dpids_port_to_mac[dpid].keys()
-            interior_ports = []
-            for dpid_pair in links_dpid_to_port.keys():
-                if dpid_pair[0] == dpid:
-                    port = links_dpid_to_port[dpid_pair][0]
-                    if port not in interior_ports:
-                        interior_ports.append(port)
-                elif dpid_pair[1] == dpid:
-                    port = links_dpid_to_port[dpid_pair][1]
-                    if port not in interior_ports:
-                        interior_ports.append(port)
-            for each_port in all_ports:
-                if each_port not in interior_ports:
-                    table[dpid].append(each_port)
-        return table # {dpid:[1],dpid:[1,2],dpid:[4],...}
-
-
     def _update_topology(self):
         switch_list = get_all_switch(self)
-        if switch_list:
+        if len(switch_list) != 0:
             self.dpids_port_to_mac = self._get_dpids_port_to_mac(switch_list)
             self.dpids = self._get_dpids(switch_list) #[dpid,dpid,dpid,...]
         link_dict = get_all_link(self)
-        if link_dict:
+        if len(link_dict) != 0:
             self.links_dpid_to_port = self._get_links_dpid_to_port(link_dict)
             self.links = self._get_links(self.links_dpid_to_port) #[(src.dpid,dst.dpid),(src.dpid,dst.dpid),...]
         if self.dpids and self.links:
             self.adjacency_matrix = self._get_adjacency_matrix(self.dpids, self.links)
+        if self.dpids_port_to_mac and self.links_dpid_to_port:
+            self.dpids_to_access_port = self._get_access_port(self.links_dpid_to_port, self.dpids_port_to_mac)
 
     def _get_dpids_port_to_mac(self,switch_list):
         table = dict()
@@ -208,6 +158,26 @@ class PathFinder(app_manager.RyuApp):
                 elif (src, dst) in links:
                     graph[src][dst] = 1
         return graph
+
+    def _get_access_port(self,links_dpid_to_port, dpids_port_to_mac):
+        table = dict()
+        for dpid in dpids_port_to_mac.keys():
+            table.setdefault(dpid,[])
+            all_ports = self.dpids_port_to_mac[dpid].keys()
+            interior_ports = []
+            for dpid_pair in links_dpid_to_port.keys():
+                if dpid_pair[0] == dpid:
+                    port = links_dpid_to_port[dpid_pair][0]
+                    if port not in interior_ports:
+                        interior_ports.append(port)
+                elif dpid_pair[1] == dpid:
+                    port = links_dpid_to_port[dpid_pair][1]
+                    if port not in interior_ports:
+                        interior_ports.append(port)
+            for each_port in all_ports:
+                if each_port not in interior_ports:
+                    table[dpid].append(each_port)
+        return table # {dpid:[1],dpid:[1,2],dpid:[4],...}
 
     def _update_hosts(self):
         host_list = get_all_host(self)
@@ -252,9 +222,38 @@ class PathFinder(app_manager.RyuApp):
                     nx.shortest_path(g,i,j)
                 except nx.exception.NetworkXNoPath:
                     continue
-                for each in nx.all_shortest_paths(g,i,j):
+                for each in nx.all_shortest_paths(g,i,j):# nx.all_simple_paths(g,i,j)
                     all_shortest_paths[(i,j)].append(each)
         return all_shortest_paths
+
+    def pre_install_flow(self,path_table):
+        print("...................pre_install_flow..................")
+        for path_pair in path_table.keys():
+            paths = path_table[path_pair]
+            path_num = len(paths)
+            if path_num > 0:
+                for path in paths:
+                    n = len(path)
+                    if n > 2:
+                        self.mpls_to_path[self.LABEL] = path # record its mpls label
+                        self.__install_flow(path,self.LABEL)
+                        self.LABEL += 1
+
+    def __install_flow(self, path, label):
+        n = len(path)
+        if n >2:
+            for i in range(1,n-1):
+                dpid = path[i]
+                priority = OFP_DEFAULT_PRIORITY # 32768 or 0x8000
+                in_port = self.links_dpid_to_port[(path[i-1],path[i])][1]
+                out_port = self.links_dpid_to_port[(path[i],path[i+1])][0]
+                match = {
+                        "dl_type":ether_types.ETH_TYPE_MPLS,
+                        "in_port":in_port,
+                        "mpls_label":label,
+                        }
+                actions = [{"type":"OUTPUT","port":out_port}]
+                self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
 
 
 #---------------------Print_to_debug------------------------

@@ -17,7 +17,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.topology.api import get_all_switch, get_all_link, get_all_host
 
-from flow_dispatcher import FlowDispatcher
+from flow_sender import FlowDispatcher
 
 class PathFinder(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]

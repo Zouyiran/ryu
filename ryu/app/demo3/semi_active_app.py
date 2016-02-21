@@ -11,26 +11,25 @@ from ryu.lib.packet import packet, ethernet, arp, ipv4, icmp, ether_types, mpls
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 
-from flow_dispatcher import FlowDispatcher
-import  pro_path_finder
+from flow_sender import FlowSender
+from path_calculator import PathCalculator
 
 
-class ProactiveApp(app_manager.RyuApp):
+class SemiActiveApp(app_manager.RyuApp):
     '''
     on the Network Layer
-    proactive app:
-    using arp_info to pre_install flow along all the selected switches(one traffic)
+    semi_active app
 
     '''
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
-        'PathFinder': pro_path_finder.PathFinder,
+        'PathCalculator': PathCalculator,
     }
 
     def __init__(self, *args, **kwargs):
-        super(ProactiveApp, self).__init__(*args, **kwargs)
-        self.path_finder = kwargs['PathFinder']
-        self.flowDispatcher = FlowDispatcher()
+        super(SemiActiveApp, self).__init__(*args, **kwargs)
+        self.path_calculator = kwargs['PathCalculator']
+        self.flowSender = FlowSender()
 
         self.dpid_ip_to_port = dict()
         self.access_table = dict()
@@ -55,16 +54,24 @@ class ProactiveApp(app_manager.RyuApp):
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
 
         if isinstance(arp_pkt, arp.arp): # arp request and arp reply
+            print("-----arp------")
+            print("dpid:",dpid)
             arp_src_ip = arp_pkt.src_ip
             arp_dst_ip = arp_pkt.dst_ip
             self.dpid_ip_to_port.setdefault(dpid,{})
             self.dpid_ip_to_port[dpid][arp_src_ip] = in_port # record it!
+
+            for each_dpid in self.dpid_ip_to_port:
+                print("dpid_ip_to_port{} dpid:",each_dpid)
+                for each_ip in self.dpid_ip_to_port[each_dpid]:
+                    print("ip:",each_ip,"port:",self.dpid_ip_to_port[each_dpid][each_ip])
+
             if arp_dst_ip in self.dpid_ip_to_port[dpid]:
                 out_port = self.dpid_ip_to_port[dpid][arp_dst_ip]
             else:
                 out_port = ofproto.OFPP_FLOOD
             data = msg.data
-            self.flowDispatcher.packet_out(datapath, in_port, out_port, data, None)
+            self.flowSender.packet_out(datapath, in_port, out_port, data, None)
             self.register_access_info(dpid, arp_src_ip, in_port)
 
         if isinstance(ip_pkt,ipv4.ipv4): # ipv4
@@ -98,14 +105,14 @@ class ProactiveApp(app_manager.RyuApp):
                                 }
                         actions = [{"type":"OUTPUT","port":dst_out_port}]
                         if buffer_id != ofproto.OFP_NO_BUFFER:
-                            self.flowDispatcher.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
+                            self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
                         else:
-                            self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
+                            self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
                             data = msg.data
-                            self.flowDispatcher.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
-                    elif (src_dpid,dst_dpid) in self.path_finder.path_table.keys(): # must be in it, "if" is no need
+                            self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
+                    elif (src_dpid,dst_dpid) in self.path_calculator.path_table.keys(): # must be in it, "if" is no need
                         print("src_dpid,dst_dpid:",src_dpid,dst_dpid)
-                        paths = self.path_finder.path_table[(src_dpid,dst_dpid)]
+                        paths = self.path_calculator.path_table[(src_dpid,dst_dpid)]
                         path_num = len(paths)
                         if path_num == 0:
                             return # unreachable
@@ -120,28 +127,28 @@ class ProactiveApp(app_manager.RyuApp):
                             print("traffic length:",len(traffic))
                             if dpid == traffic[0]:
                                 print("dpid == traffic[0]:",dpid)
-                                out_port = self.path_finder.links_dpid_to_port[(traffic[0],traffic[1])][0]
+                                out_port = self.path_calculator.links_dpid_to_port[(traffic[0],traffic[1])][0]
                                 label = self._get_mpls_label(traffic)
                                 print("label:",label)
                                 assert label
                                 pack = self.__add_mpls(pkt, label, src_mac, dst_mac)
                                 pack.serialize()
                                 data = pack.data
-                                self.flowDispatcher.packet_out(datapath, in_port, out_port, data, None)
+                                self.flowSender.packet_out(datapath, in_port, out_port, data, None)
                             elif dpid == traffic[-1]:
                                 print("dpid == traffic[-1]:",dpid)
                                 out_port = dst_out_port
                                 pack = self.__remove_mpls(pkt, src_mac, dst_mac)
                                 pack.serialize()
                                 data = pack.data
-                                self.flowDispatcher.packet_out(datapath, in_port, out_port, data, None)
+                                self.flowSender.packet_out(datapath, in_port, out_port, data, None)
                             else:
                                 print("not path[0] and not path[-1], so this is a BUG!!!")
                             return
 
     def _get_mpls_label(self,traffic):
-        for label in self.path_finder.mpls_to_path.keys():
-            if self.path_finder.mpls_to_path[label] == traffic:
+        for label in self.path_calculator.mpls_to_path.keys():
+            if self.path_calculator.mpls_to_path[label] == traffic:
                 return label
         return None
 
@@ -162,7 +169,7 @@ class ProactiveApp(app_manager.RyuApp):
         return pkt_new
 
     def register_access_info(self, dpid, ip, port):
-        if port in self.path_finder.dpids_to_access_port[dpid]: # {1: [4], 2: [], 3: [], 4: [2, 3], 5: [2, 3], 6: [2, 3]}
+        if port in self.path_calculator.dpids_to_access_port[dpid]: # {1: [4], 2: [], 3: [], 4: [2, 3], 5: [2, 3], 6: [2, 3]}
             self.access_table[(dpid,port)] = ip
 
     def _get_host_location(self,host):
@@ -173,7 +180,7 @@ class ProactiveApp(app_manager.RyuApp):
 
     def get_traffic(self,src_dpid, dst_dpid):
         traffic = []
-        all_traffic = self.path_finder.path_table[(src_dpid,dst_dpid)]
+        all_traffic = self.path_calculator.path_table[(src_dpid,dst_dpid)]
         if all_traffic:
             i = random.randint(0,len(all_traffic)-1)
             traffic = all_traffic[i]
@@ -188,14 +195,14 @@ class ProactiveApp(app_manager.RyuApp):
             if j == n - 1: # dst_dpid
                 print("install flow on dpid:",dpid)
                 priority = OFP_DEFAULT_PRIORITY
-                in_port = self.path_finder.links_dpid_to_port[(traffic[j-1],traffic[j])][1]
+                in_port = self.path_calculator.links_dpid_to_port[(traffic[j-1],traffic[j])][1]
                 match = {
                         "dl_type":ether_types.ETH_TYPE_IP,
                         "in_port":in_port,
                         "nw_dst":dst_ip,
                         }
                 actions = [{"type":"OUTPUT","port":dst_out_port}]
-                self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
+                self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
             elif j == 0: # src_dpid
                 print("install flow on dpid:",dpid)
                 priority = OFP_DEFAULT_PRIORITY
@@ -204,23 +211,23 @@ class ProactiveApp(app_manager.RyuApp):
                         "in_port":src_in_port,
                         "nw_dst":dst_ip,
                         }
-                out_port = self.path_finder.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
+                out_port = self.path_calculator.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
                 actions = [{"type":"OUTPUT","port":out_port}]
                 if buffer_id != ofproto.OFP_NO_BUFFER:
-                    self.flowDispatcher.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
+                    self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
                 else:
-                    self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
+                    self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
                     data = msg.data
-                    self.flowDispatcher.packet_out(self.path_finder.dpid_to_dp[dpid], src_in_port, out_port, data, buffer_id)
+                    self.flowSender.packet_out(self.path_calculator.dpid_to_dp[dpid], src_in_port, out_port, data, buffer_id)
             else:
                 print("install flow on dpid:",dpid)
                 priority = OFP_DEFAULT_PRIORITY
-                in_port = self.path_finder.links_dpid_to_port[(traffic[j-1],traffic[j])][1]
-                out_port = self.path_finder.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
+                in_port = self.path_calculator.links_dpid_to_port[(traffic[j-1],traffic[j])][1]
+                out_port = self.path_calculator.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
                 match = {
                         "dl_type":ether_types.ETH_TYPE_IP,
                         "in_port":in_port,
                         "nw_dst":dst_ip,
                         }
                 actions = [{"type":"OUTPUT","port":out_port}]
-                self.flowDispatcher.add_flow_rest_1(dpid, priority, match, actions)
+                self.flowSender.add_flow_rest_1(dpid, priority, match, actions)

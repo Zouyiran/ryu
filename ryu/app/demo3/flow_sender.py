@@ -3,7 +3,7 @@
 
 import requests
 
-class FlowDispatcher(object):
+class FlowSender(object):
 
     def __init__(self):
         self.IP = "http://localhost:8080"

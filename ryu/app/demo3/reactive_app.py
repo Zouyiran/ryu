@@ -11,7 +11,7 @@ from ryu.lib.packet import packet, ethernet, arp, ipv4, icmp, ether_types
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 
-from flow_dispatcher import FlowDispatcher
+from flow_sender import FlowDispatcher
 import  re_path_finder
 
 

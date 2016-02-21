@@ -22,15 +22,15 @@ from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
+from ryu.lib.packet import ethernet, arp, icmp
 from ryu.lib.packet import ether_types
 
 
-class SimpleSwitch13(app_manager.RyuApp):
+class ReactiveApp(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(SimpleSwitch13, self).__init__(*args, **kwargs)
+        super(ReactiveApp, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -87,14 +87,33 @@ class SimpleSwitch13(app_manager.RyuApp):
             return
         dst = eth.dst
         src = eth.src
+        ar = pkt.get_protocol(arp.arp)
+        ic = pkt.get_protocol(icmp.icmp)
+
 
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+        # self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
+        if isinstance(ar, arp.arp):
+            print("-----arp packet------")
+            print("dpid:",datapath.id)
+            print(pkt)
+            for each in self.mac_to_port:
+                print "dpid:",each
+                for a in self.mac_to_port[each]:
+                    print "mac:",a,"->","port:",self.mac_to_port[each][a]
+        if isinstance(ic, icmp.icmp):
+            print("-----icmp packet------")
+            print("dpid:",datapath.id)
+            print(pkt)
+            for each in self.mac_to_port:
+                print "dpid:",each
+                for a in self.mac_to_port[each]:
+                    print "mac:",a,"->","port:",self.mac_to_port[each][a]
 
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
@@ -105,6 +124,8 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
+            if isinstance(ar, arp.arp):
+                print("out_port != ofproto.OFPP_FLOOD:",out_port)
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
             # verify if we have a valid buffer_id, if yes avoid to send both
             # flow_mod & packet_out
