@@ -117,7 +117,7 @@ class SemiActiveApp(app_manager.RyuApp):
                         if path_num == 0:
                             return # unreachable
                         print(paths)
-                        traffic = self.get_traffic(src_dpid,dst_dpid)
+                        traffic = self.flow_generate(src_dpid,dst_dpid)
                         print(traffic)
                         # NO need to mpls
                         if len(traffic) == 2:
@@ -178,7 +178,7 @@ class SemiActiveApp(app_manager.RyuApp):
                 return sw
         return None
 
-    def get_traffic(self,src_dpid, dst_dpid):
+    def flow_generate(self,src_dpid, dst_dpid):
         traffic = []
         all_traffic = self.path_calculator.path_table[(src_dpid,dst_dpid)]
         if all_traffic:

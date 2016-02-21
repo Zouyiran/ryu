@@ -17,7 +17,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.topology.api import get_all_switch, get_all_link, get_all_host
 
-from flow_sender import FlowDispatcher
+from flow_sender import FlowSender
 
 class PathFinder(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -25,7 +25,7 @@ class PathFinder(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(PathFinder, self).__init__(*args, **kwargs)
         self.name = 'PathFinder'
-        self.flowDispatcher = FlowDispatcher()
+        self.flowDispatcher = FlowSender()
 
         # {dpid:{port:mac,port:mac,...},dpid:{port:mac,port:mac,...},...} only switches'mac
         self.dpids_port_to_mac = dict()
