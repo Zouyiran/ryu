@@ -17,12 +17,12 @@ from ryu.topology.api import get_all_switch, get_all_link, get_all_host
 from flow_sender import FlowSender
 
 
-class PathCalculator(app_manager.RyuApp):
+class PathFinder(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(PathCalculator, self).__init__(*args, **kwargs)
-        self.name = 'PathCalculator'
+        super(PathFinder, self).__init__(*args, **kwargs)
+        self.name = 'PathFinder'
         self.flowSender = FlowSender()
 
         # {dpid:{port:mac,port:mac,...},dpid:{port:mac,port:mac,...},...} only switches'mac
@@ -91,7 +91,6 @@ class PathCalculator(app_manager.RyuApp):
             hub.sleep(self.SLEEP_PERIOD)
             self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
             self._update_topology()
-            # self._update_hosts()
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
                 self.path_table = self._get_path_table(self.adjacency_matrix)
@@ -99,9 +98,7 @@ class PathCalculator(app_manager.RyuApp):
 
                 self._show_dpids()
                 self._show_links()
-                # self._show_hosts()
                 self._show_dpid_port_to_mac()
-                # self._show_dpid_port_to_host()
                 self._show_links_dpid_to_port()
                 self._show_matrix()
                 self._show_path_table()

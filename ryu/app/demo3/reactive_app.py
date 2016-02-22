@@ -37,6 +37,7 @@ class ReactiveApp(app_manager.RyuApp):
 
         self.dpid_ip_to_port = dict()
         self.access_table = dict()
+        self.traffic = None
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler_stp(self, ev):
@@ -54,8 +55,6 @@ class ReactiveApp(app_manager.RyuApp):
             return
 
         arp_pkt = pkt.get_protocol(arp.arp)
-        ip_pkt = pkt.get_protocol(ipv4.ipv4)
-
         if isinstance(arp_pkt, arp.arp): # arp request and arp reply
             arp_src_ip = arp_pkt.src_ip
             arp_dst_ip = arp_pkt.dst_ip
@@ -69,6 +68,7 @@ class ReactiveApp(app_manager.RyuApp):
             self.flowSender.packet_out(datapath, in_port, out_port, data, None)
             self.register_access_info(dpid, arp_src_ip, in_port)
 
+        ip_pkt = pkt.get_protocol(ipv4.ipv4)
         if isinstance(ip_pkt,ipv4.ipv4): # ipv4
             src_ip = ip_pkt.src
             dst_ip = ip_pkt.dst
@@ -81,7 +81,6 @@ class ReactiveApp(app_manager.RyuApp):
                 dst_dpid = dst_sw[0]
                 src_in_port = src_sw[1]
                 dst_out_port = dst_sw[1]
-                # NO need to mpls
                 if src_dpid == dst_dpid and src_dpid == dpid:
                     print("src_dpid == dst_dpid")
                     priority = OFP_DEFAULT_PRIORITY
@@ -99,9 +98,21 @@ class ReactiveApp(app_manager.RyuApp):
                         self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
                 else:
                     print("src_dpid != dst_dpid")
-                    traffic = self.get_traffic(src_dpid,dst_dpid)
-                    if traffic:# reachable
-                        self.install_flow_2(datapath, traffic,dst_ip,src_in_port,dst_out_port,buffer_id,msg)
+                    if dpid == src_dpid:
+                        self.traffic = self.get_traffic(src_dpid,dst_dpid)
+                    if self.traffic: # end-to-end reachable
+                        self.install_flow(datapath,self.traffic,dst_ip,src_in_port,dst_out_port)
+                        data = msg.data
+                        if dpid == self.traffic[-1]:
+                            out_port = dst_out_port
+                        else:
+                            index = 0
+                            for each_dpid in self.traffic:
+                                index += 1
+                                if each_dpid == dpid:
+                                    break
+                            out_port = self.path_finder.links_dpid_to_port[(self.traffic[index-1],self.traffic[index])][0]
+                        self.flowSender.packet_out(datapath, in_port, out_port, data, buffer_id)
 
     def register_access_info(self, dpid, ip, port):
         if port in self.path_finder.dpids_to_access_port[dpid]: # {1: [4], 2: [], 3: [], 4: [2, 3], 5: [2, 3], 6: [2, 3]}
@@ -121,111 +132,31 @@ class ReactiveApp(app_manager.RyuApp):
             traffic = all_traffic[i]
         return traffic
 
-    def install_flow_2(self,datapath, traffic, dst_ip, src_in_port, dst_out_port, buffer_id, msg):
+    def install_flow(self, datapath, traffic, dst_ip, src_in_port, dst_out_port):
         dpid = datapath.id
         ofproto = datapath.ofproto
-        print("traffic:",traffic)
+        priority = OFP_DEFAULT_PRIORITY
         if dpid == traffic[0]:
             print("install flow on src_dpid:",dpid)
-            priority = OFP_DEFAULT_PRIORITY
             in_port = src_in_port
-            match = {
-                    "dl_type":ether_types.ETH_TYPE_IP,
-                    "in_port":in_port,
-                    "nw_dst":dst_ip,
-                    }
             out_port = self.path_finder.links_dpid_to_port[(traffic[0],traffic[1])][0]
-            actions = [{"type":"OUTPUT","port":out_port}]
         elif dpid == traffic[-1]:
             print("install flow on dst_dpid:",dpid)
-            priority = OFP_DEFAULT_PRIORITY
             in_port = self.path_finder.links_dpid_to_port[(traffic[-2],traffic[-1])][1]
-            match = {
-                    "dl_type":ether_types.ETH_TYPE_IP,
-                    "in_port":in_port,
-                    "nw_dst":dst_ip,
-                    }
             out_port = dst_out_port
-            actions = [{"type":"OUTPUT","port":out_port}]
         else:
             print("install flow on dpid:",dpid)
-            priority = OFP_DEFAULT_PRIORITY
             index = 0
             for each_dpid in traffic:
                 index += 1
                 if dpid == each_dpid:
                     break
             in_port = self.path_finder.links_dpid_to_port[(traffic[index-2],traffic[index-1])][1]
-            match = {
-                    "dl_type":ether_types.ETH_TYPE_IP,
-                    "in_port":in_port,
-                    "nw_dst":dst_ip,
-                    }
             out_port = self.path_finder.links_dpid_to_port[(traffic[index-1],traffic[index])][0]
-            actions = [{"type":"OUTPUT","port":out_port}]
-        if buffer_id != ofproto.OFP_NO_BUFFER:
-            self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
-        else:
-            self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
-            data = msg.data
-            self.flowSender.packet_out(datapath, in_port, out_port, data, buffer_id)
-
-    def install_flow(self, traffic, dst_ip, src_in_port, dst_out_port, buffer_id, ofproto, msg):
-        n = len(traffic)
-        for i in range(n): # 0,1,.., n-1
-            j = n - 1 - i # n-1,n-2,...,0
-            dpid = traffic[j]
-            if j == n - 1: # dst_dpid
-                print("install flow on dpid:",dpid)
-                priority = OFP_DEFAULT_PRIORITY
-                in_port = self.path_finder.links_dpid_to_port[(traffic[j-1],traffic[j])][1]
-                match = {
-                        "dl_type":ether_types.ETH_TYPE_IP,
-                        "in_port":in_port,
-                        "nw_dst":dst_ip,
-                        }
-                actions = [{"type":"OUTPUT","port":dst_out_port}]
-                self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
-            elif j == 0: # src_dpid
-                print("install flow on dpid:",dpid)
-                priority = OFP_DEFAULT_PRIORITY
-                match = {
-                        "dl_type":ether_types.ETH_TYPE_IP,
-                        "in_port":src_in_port,
-                        "nw_dst":dst_ip,
-                        }
-                out_port = self.path_finder.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
-                actions = [{"type":"OUTPUT","port":out_port}]
-                if buffer_id != ofproto.OFP_NO_BUFFER:
-                    self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
-                else:
-                    self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
-                    data = msg.data
-                    self.flowSender.packet_out(self.path_finder.dpid_to_dp[dpid], src_in_port, out_port, data, buffer_id)
-            else:
-                print("install flow on dpid:",dpid)
-                priority = OFP_DEFAULT_PRIORITY
-                in_port = self.path_finder.links_dpid_to_port[(traffic[j-1],traffic[j])][1]
-                out_port = self.path_finder.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
-                match = {
-                        "dl_type":ether_types.ETH_TYPE_IP,
-                        "in_port":in_port,
-                        "nw_dst":dst_ip,
-                        }
-                actions = [{"type":"OUTPUT","port":out_port}]
-                self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        match = {
+                "dl_type":ether_types.ETH_TYPE_IP,
+                "in_port":in_port,
+                "nw_dst":dst_ip,
+                }
+        actions = [{"type":"OUTPUT","port":out_port}]
+        self.flowSender.add_flow_rest_1(dpid, priority, match, actions)

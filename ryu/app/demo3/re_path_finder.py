@@ -86,7 +86,6 @@ class PathFinder(app_manager.RyuApp):
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
                 self.path_table = self._get_path_table(self.adjacency_matrix)
-                self.dpids_to_access_port = self._get_access_port(self.links_dpid_to_port, self.dpids_port_to_mac)
 
                 self._show_dpids()
                 self._show_links()
@@ -127,6 +126,8 @@ class PathFinder(app_manager.RyuApp):
             self.links = self._get_links(self.links_dpid_to_port) #[(src.dpid,dst.dpid),(src.dpid,dst.dpid),...]
         if self.dpids and self.links:
             self.adjacency_matrix = self._get_adjacency_matrix(self.dpids, self.links)
+        if self.dpids_port_to_mac and self.links_dpid_to_port:
+            self.dpids_to_access_port = self._get_access_port(self.links_dpid_to_port, self.dpids_port_to_mac)
 
     def _get_dpids_port_to_mac(self,switch_list):
         table = dict()
