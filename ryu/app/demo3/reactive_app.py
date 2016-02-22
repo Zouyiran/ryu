@@ -72,35 +72,36 @@ class ReactiveApp(app_manager.RyuApp):
         if isinstance(ip_pkt,ipv4.ipv4): # ipv4
             src_ip = ip_pkt.src
             dst_ip = ip_pkt.dst
-            icmp_pkt = pkt.get_protocol(icmp.icmp)
-            if isinstance(icmp_pkt,icmp.icmp):
-                src_sw = self._get_host_location(src_ip)
-                dst_sw = self._get_host_location(dst_ip)
-                if src_sw and dst_sw:
-                    src_dpid = src_sw[0]
-                    dst_dpid = dst_sw[0]
-                    src_in_port = src_sw[1]
-                    dst_out_port = dst_sw[1]
-                    if src_dpid == dst_dpid: # belongs to same dpid
-                        print("src_dpid == dst_dpid:",src_dpid)
-                        priority = OFP_DEFAULT_PRIORITY
-                        match = {
-                                "dl_type":ether_types.ETH_TYPE_IP,
-                                "in_port":in_port,
-                                "nw_dst":dst_ip,
-                                }
-                        actions = [{"type":"OUTPUT","port":dst_out_port}]
-                        if buffer_id != ofproto.OFP_NO_BUFFER:
-                            self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
-                        else:
-                            self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
-                            data = msg.data
-                            self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
+            # icmp_pkt = pkt.get_protocol(icmp.icmp)
+            # if isinstance(icmp_pkt,icmp.icmp):
+            src_sw = self._get_host_location(src_ip)
+            dst_sw = self._get_host_location(dst_ip)
+            if src_sw and dst_sw:
+                src_dpid = src_sw[0]
+                dst_dpid = dst_sw[0]
+                src_in_port = src_sw[1]
+                dst_out_port = dst_sw[1]
+                # NO need to mpls
+                if src_dpid == dst_dpid and src_dpid == dpid:
+                    print("src_dpid == dst_dpid")
+                    priority = OFP_DEFAULT_PRIORITY
+                    match = {
+                            "dl_type":ether_types.ETH_TYPE_IP,
+                            "in_port":in_port,
+                            "nw_dst":dst_ip,
+                            }
+                    actions = [{"type":"OUTPUT","port":dst_out_port}]
+                    if buffer_id != ofproto.OFP_NO_BUFFER:
+                        self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
                     else:
-                        print("src_dpid != dst_dpid:",src_dpid)
-                        traffic = self.get_traffic(src_dpid,dst_dpid)
-                        if traffic:# reachable
-                            self.install_flow_2(datapath, traffic,dst_ip,src_in_port,dst_out_port,buffer_id,msg)
+                        self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
+                        data = msg.data
+                        self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
+                else:
+                    print("src_dpid != dst_dpid")
+                    traffic = self.get_traffic(src_dpid,dst_dpid)
+                    if traffic:# reachable
+                        self.install_flow_2(datapath, traffic,dst_ip,src_in_port,dst_out_port,buffer_id,msg)
 
     def register_access_info(self, dpid, ip, port):
         if port in self.path_finder.dpids_to_access_port[dpid]: # {1: [4], 2: [], 3: [], 4: [2, 3], 5: [2, 3], 6: [2, 3]}
@@ -119,7 +120,7 @@ class ReactiveApp(app_manager.RyuApp):
             i = random.randint(0,len(all_traffic)-1)
             traffic = all_traffic[i]
         return traffic
-    #datapath, traffic,dst_ip,src_in_port,dst_out_port,buffer_id,msg
+
     def install_flow_2(self,datapath, traffic, dst_ip, src_in_port, dst_out_port, buffer_id, msg):
         dpid = datapath.id
         ofproto = datapath.ofproto

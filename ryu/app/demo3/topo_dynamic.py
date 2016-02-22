@@ -40,21 +40,22 @@ def waxman_topology(n_switch, n_host, alpha=0.4, beta=0.1, L=1.0, distance_unit=
         v = topo.number_of_nodes()
         topo.add_node(v)
         topo.node[v]['type'] = 'host'
-        u = random.randint(0,n_switch-1)
+        # u = random.randint(0,n_switch-1)
+        u = v - n_switch
         topo.add_edge(v, u)
     return topo
 
 
 def main():
     # generate a Waxman1 topology with 200 nodes
-    topology = waxman_topology(n_switch=10, n_host=8, alpha=0.99, beta=0.2, L=1.0)
+    topology = waxman_topology(n_switch=10, n_host=8, alpha=0.99, beta=0.3, L=1.0)
 
     # assign constant weight (1) to all links
     fnss.set_weights_constant(topology, 1)
 
 
     # set delay equal to 1 ms to all links
-    fnss.set_delays_constant(topology, 1, 'ms')
+    # fnss.set_delays_constant(topology, 1, 'ms')
 
     # set varying capacities among 10, 100 and 1000 Mbps proprtionally to edge
     # betweenness centrality
@@ -63,7 +64,15 @@ def main():
 
     # now create a static traffic matrix assuming all nodes are both origins
     # and destinations of traffic
-    traffic_matrix = fnss.static_traffic_matrix(topology, mean=2, stddev=0.2, max_u=0.5)
+    all_nodes = topology.nodes()
+    traffic_nodes = []
+    for each_node in all_nodes:
+        if topology.node[each_node]['type'] == 'host':
+            traffic_nodes.append(each_node)
+            print("traffic node:",each_node)
+    traffic_matrix = fnss.static_traffic_matrix(topology, mean=2, stddev=0.2, max_u=0.5,
+                                                origin_nodes=traffic_nodes,
+                                                destination_nodes=traffic_nodes)
 
     # # This is the event generator function, which generates link failure events
     # def rand_failure(links):

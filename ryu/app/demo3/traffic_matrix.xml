@@ -1,0 +1,77 @@
+<traffic-matrix type="single">
+  <time seq="0">
+    <property name="volume_unit" type="string">Mbps</property>
+    <origin id="10" id.type="int">
+      <destination id="11" id.type="int">1.33486003648</destination>
+      <destination id="12" id.type="int">1.34357961283</destination>
+      <destination id="13" id.type="int">1.35000408069</destination>
+      <destination id="14" id.type="int">1.35562442233</destination>
+      <destination id="15" id.type="int">1.36001222958</destination>
+      <destination id="16" id.type="int">1.39325622168</destination>
+      <destination id="17" id.type="int">1.39437833024</destination>
+    </origin>
+    <origin id="11" id.type="int">
+      <destination id="10" id.type="int">1.40611209288</destination>
+      <destination id="12" id.type="int">1.41451514548</destination>
+      <destination id="13" id.type="int">1.43494050626</destination>
+      <destination id="14" id.type="int">1.45202124136</destination>
+      <destination id="15" id.type="int">1.46266432567</destination>
+      <destination id="16" id.type="int">1.47237747996</destination>
+      <destination id="17" id.type="int">1.47690332616</destination>
+    </origin>
+    <origin id="12" id.type="int">
+      <destination id="10" id.type="int">1.48860332514</destination>
+      <destination id="11" id.type="int">1.49149405803</destination>
+      <destination id="13" id.type="int">1.49291548354</destination>
+      <destination id="14" id.type="int">1.51111852433</destination>
+      <destination id="15" id.type="int">1.51276421719</destination>
+      <destination id="16" id.type="int">1.51673645388</destination>
+      <destination id="17" id.type="int">1.52241410942</destination>
+    </origin>
+    <origin id="13" id.type="int">
+      <destination id="10" id.type="int">1.52921911434</destination>
+      <destination id="11" id.type="int">1.53519315294</destination>
+      <destination id="12" id.type="int">1.55249907711</destination>
+      <destination id="14" id.type="int">1.56109302589</destination>
+      <destination id="15" id.type="int">1.5647609392</destination>
+      <destination id="16" id.type="int">1.57525666719</destination>
+      <destination id="17" id.type="int">1.57760331585</destination>
+    </origin>
+    <origin id="14" id.type="int">
+      <destination id="10" id.type="int">1.57791907254</destination>
+      <destination id="11" id.type="int">1.59008742054</destination>
+      <destination id="12" id.type="int">1.59721307311</destination>
+      <destination id="13" id.type="int">1.60691287539</destination>
+      <destination id="15" id.type="int">1.61932997601</destination>
+      <destination id="16" id.type="int">1.64373973337</destination>
+      <destination id="17" id.type="int">1.64911246642</destination>
+    </origin>
+    <origin id="15" id.type="int">
+      <destination id="10" id.type="int">1.65414524687</destination>
+      <destination id="11" id.type="int">1.65884157318</destination>
+      <destination id="12" id.type="int">1.67195004493</destination>
+      <destination id="13" id.type="int">1.68507760369</destination>
+      <destination id="14" id.type="int">1.68701317996</destination>
+      <destination id="16" id.type="int">1.69478469355</destination>
+      <destination id="17" id.type="int">1.69612595192</destination>
+    </origin>
+    <origin id="16" id.type="int">
+      <destination id="10" id.type="int">1.69753507266</destination>
+      <destination id="11" id.type="int">1.69994977723</destination>
+      <destination id="12" id.type="int">1.71328815814</destination>
+      <destination id="13" id.type="int">1.71796409283</destination>
+      <destination id="14" id.type="int">1.72204219176</destination>
+      <destination id="15" id.type="int">1.72348656341</destination>
+      <destination id="17" id.type="int">1.74352254348</destination>
+    </origin>
+    <origin id="17" id.type="int">
+      <destination id="10" id.type="int">1.75385900608</destination>
+      <destination id="11" id.type="int">1.76749210244</destination>
+      <destination id="12" id.type="int">1.78699068735</destination>
+      <destination id="13" id.type="int">1.79222980745</destination>
+      <destination id="14" id.type="int">1.90946981094</destination>
+      <destination id="15" id.type="int">1.95952235743</destination>
+      <destination id="16" id.type="int">1.97963955174</destination>
+    </origin>
+  </time>
+</traffic-matrix>

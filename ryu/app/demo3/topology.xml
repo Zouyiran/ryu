@@ -1,0 +1,199 @@
+<topology linkdefault="undirected">
+  <property name="capacity_unit" type="string">Mbps</property>
+  <property name="distance_unit" type="string">Km</property>
+  <property name="type" type="string">waxman_1</property>
+  <property name="name" type="string">waxman_1_topology(10, 0.99, 0.3, 1.0)</property>
+  <node id="0" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="1" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="2" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="3" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="4" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="5" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="6" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="7" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="8" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="9" id.type="int">
+    <property name="type" type="string">switch</property>
+  </node>
+  <node id="10" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="11" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="12" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="13" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="14" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="15" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="16" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <node id="17" id.type="int">
+    <property name="type" type="string">host</property>
+  </node>
+  <link>
+    <from type="int">0</from>
+    <to type="int">10</to>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">0</from>
+    <to type="int">4</to>
+    <property name="length" type="float">0.120171471338</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">0</from>
+    <to type="int">6</to>
+    <property name="length" type="float">0.126919161474</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">1</from>
+    <to type="int">8</to>
+    <property name="length" type="float">0.197233043301</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">1</from>
+    <to type="int">11</to>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">1</from>
+    <to type="int">4</to>
+    <property name="length" type="float">0.0372796798368</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">1</from>
+    <to type="int">5</to>
+    <property name="length" type="float">0.129893725256</property>
+    <property name="capacity" type="int">10</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">2</from>
+    <to type="int">8</to>
+    <property name="length" type="float">0.0465588236505</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">2</from>
+    <to type="int">9</to>
+    <property name="length" type="float">0.186085639221</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">2</from>
+    <to type="int">3</to>
+    <property name="length" type="float">0.0557117581987</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">2</from>
+    <to type="int">12</to>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">2</from>
+    <to type="int">7</to>
+    <property name="length" type="float">0.891250351349</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">3</from>
+    <to type="int">13</to>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">4</from>
+    <to type="int">14</to>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">4</from>
+    <to type="int">6</to>
+    <property name="length" type="float">0.0472828040692</property>
+    <property name="capacity" type="int">10</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">4</from>
+    <to type="int">7</to>
+    <property name="length" type="float">0.0529988323674</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">5</from>
+    <to type="int">15</to>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">5</from>
+    <to type="int">7</to>
+    <property name="length" type="float">0.185283304396</property>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">6</from>
+    <to type="int">16</to>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">6</from>
+    <to type="int">7</to>
+    <property name="length" type="float">0.34010959204</property>
+    <property name="capacity" type="int">1000</property>
+    <property name="weight" type="int">1</property>
+  </link>
+  <link>
+    <from type="int">7</from>
+    <to type="int">17</to>
+    <property name="capacity" type="int">100</property>
+    <property name="weight" type="int">1</property>
+  </link>
+</topology>
