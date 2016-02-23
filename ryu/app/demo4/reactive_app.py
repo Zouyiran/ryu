@@ -22,7 +22,7 @@ class ReactiveApp(app_manager.RyuApp):
     when first data packet come in,
     packet_in to the controller,
     select one traffic,
-    install flow along all the switches,
+    install flow THE NOW DPID!!!!!
     and then packet out the data packet
     '''
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -99,7 +99,9 @@ class ReactiveApp(app_manager.RyuApp):
                 else:
                     print("src_dpid != dst_dpid")
                     if dpid == src_dpid:
+                        print("now_dpid:",dpid)
                         self.traffic = self.get_traffic(src_dpid,dst_dpid)
+                        print("traffic:",self.traffic)
                     if self.traffic: # end-to-end reachable
                         self.install_flow(datapath,self.traffic,dst_ip,src_in_port,dst_out_port)
                         data = msg.data
@@ -151,6 +153,7 @@ class ReactiveApp(app_manager.RyuApp):
                 index += 1
                 if dpid == each_dpid:
                     break
+            print("index:",index)
             in_port = self.path_finder.links_dpid_to_port[(traffic[index-2],traffic[index-1])][1]
             out_port = self.path_finder.links_dpid_to_port[(traffic[index-1],traffic[index])][0]
         match = {

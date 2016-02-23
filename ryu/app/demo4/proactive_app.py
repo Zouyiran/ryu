@@ -7,7 +7,7 @@ from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.lib.packet import packet, ethernet, arp, ipv4, icmp, ether_types, mpls
+from ryu.lib.packet import packet, ethernet, arp, ipv4, icmp, ether_types, mpls, tcp
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 
@@ -37,7 +37,7 @@ class SemiActiveApp(app_manager.RyuApp):
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler_stp(self, ev):
+    def packet_in_handler(self, ev):
         msg = ev.msg
         buffer_id = msg.buffer_id
         datapath = msg.datapath
@@ -64,75 +64,79 @@ class SemiActiveApp(app_manager.RyuApp):
             self.flowSender.packet_out(datapath, in_port, out_port, data)
             self.register_access_info(dpid, arp_src_ip, in_port)
 
-        ip_pkt = pkt.get_protocol(ipv4.ipv4)
-        if isinstance(ip_pkt,ipv4.ipv4): # ipv4
-            src_ip = ip_pkt.src
-            dst_ip = ip_pkt.dst
-            # icmp_pkt = pkt.get_protocol(icmp.icmp)
-            # if isinstance(icmp_pkt,icmp.icmp):
-            src_sw = self._get_host_location(src_ip)
-            dst_sw = self._get_host_location(dst_ip)
-            eth = pkt.get_protocols(ethernet.ethernet)[0]
-            src_mac = eth.src
-            dst_mac = eth.dst
-            if src_sw and dst_sw:
-                src_dpid = src_sw[0]
-                dst_dpid = dst_sw[0]
-                src_in_port = src_sw[1]
-                dst_out_port = dst_sw[1]
-                # NO need to mpls
-                if src_dpid == dst_dpid and src_dpid == dpid:
-                    print("src_dpid == dst_dpid")
-                    priority = OFP_DEFAULT_PRIORITY
-                    match = {
-                            "dl_type":ether_types.ETH_TYPE_IP,
-                            "in_port":in_port,
-                            "nw_dst":dst_ip,
-                            }
-                    actions = [{"type":"OUTPUT","port":dst_out_port}]
-                    if buffer_id != ofproto.OFP_NO_BUFFER:
-                        self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
-                    else:
-                        self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
-                        data = msg.data
-                        self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
-                else:
-                    print("src_dpid != dst_dpid",src_dpid,dst_dpid)
-                    if dpid == src_dpid:
-                        self.traffic = self.flow_generate(src_dpid,dst_dpid)
-                    if self.traffic:
-                        # NO need to mpls
-                        if len(self.traffic) == 2:
-                            self.install_flow(self.traffic,dst_ip,src_in_port,dst_out_port)
-                            self.install_flow(self.traffic[::-1],src_ip,dst_out_port,src_in_port)
-                            out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
+        tcp_pkt = pkt.get_protocol(tcp.tcp)
+        if isinstance(tcp_pkt, tcp.tcp): # reactive select a path and install flow
+            pass
+
+            ip_pkt = pkt.get_protocol(ipv4.ipv4)
+            if isinstance(ip_pkt,ipv4.ipv4): # ipv4
+                src_ip = ip_pkt.src
+                dst_ip = ip_pkt.dst
+                # icmp_pkt = pkt.get_protocol(icmp.icmp)
+                # if isinstance(icmp_pkt,icmp.icmp):
+                src_sw = self._get_host_location(src_ip)
+                dst_sw = self._get_host_location(dst_ip)
+                eth = pkt.get_protocols(ethernet.ethernet)[0]
+                src_mac = eth.src
+                dst_mac = eth.dst
+                if src_sw and dst_sw:
+                    src_dpid = src_sw[0]
+                    dst_dpid = dst_sw[0]
+                    src_in_port = src_sw[1]
+                    dst_out_port = dst_sw[1]
+                    # NO need to mpls
+                    if src_dpid == dst_dpid and src_dpid == dpid:
+                        print("src_dpid == dst_dpid")
+                        priority = OFP_DEFAULT_PRIORITY
+                        match = {
+                                "dl_type":ether_types.ETH_TYPE_IP,
+                                "in_port":in_port,
+                                "nw_dst":dst_ip,
+                                }
+                        actions = [{"type":"OUTPUT","port":dst_out_port}]
+                        if buffer_id != ofproto.OFP_NO_BUFFER:
+                            self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
+                        else:
+                            self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
                             data = msg.data
-                            self.flowSender.packet_out(datapath, in_port, out_port, data)
-                        # need to mpls
-                        elif len(self.traffic) > 2:
-                            print("traffic length:",len(self.traffic))
-                            # pack mpls
-                            if dpid == self.traffic[0]:
-                                print("pack mpls dpid == traffic[0]:",dpid)
+                            self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
+                    else:
+                        print("src_dpid != dst_dpid",src_dpid,dst_dpid)
+                        if dpid == src_dpid:
+                            self.traffic = self.traffic_generate(src_dpid,dst_dpid)
+                        if self.traffic:
+                            # NO need to mpls
+                            if len(self.traffic) == 2:
                                 self.install_flow(self.traffic,dst_ip,src_in_port,dst_out_port)
                                 self.install_flow(self.traffic[::-1],src_ip,dst_out_port,src_in_port)
                                 out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
-                                label = self._get_mpls_label(self.traffic)
-                                pack = self.__add_mpls(pkt, label, src_mac, dst_mac)
-                                pack.serialize()
-                                data = pack.data
+                                data = msg.data
                                 self.flowSender.packet_out(datapath, in_port, out_port, data)
-                            # unpack mpls
-                            elif dpid == self.traffic[-1]:
-                                print("unpack mpls dpid == traffic[-1]:",dpid)
-                                out_port = dst_out_port
-                                pack = self.__remove_mpls(pkt, src_mac, dst_mac)
-                                pack.serialize()
-                                data = pack.data
-                                self.flowSender.packet_out(datapath, in_port, out_port, data)
-                            else:
-                                print("not path[0] and not path[-1], so this is a BUG!!!")
-                            return
+                            # need to mpls
+                            elif len(self.traffic) > 2:
+                                print("traffic length:",len(self.traffic))
+                                # pack mpls
+                                if dpid == self.traffic[0]:
+                                    print("pack mpls dpid == traffic[0]:",dpid)
+                                    self.install_flow(self.traffic,dst_ip,src_in_port,dst_out_port)
+                                    self.install_flow(self.traffic[::-1],src_ip,dst_out_port,src_in_port)
+                                    out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
+                                    label = self._get_mpls_label(self.traffic)
+                                    pack = self.__add_mpls(pkt, label, src_mac, dst_mac)
+                                    pack.serialize()
+                                    data = pack.data
+                                    self.flowSender.packet_out(datapath, in_port, out_port, data)
+                                # unpack mpls
+                                elif dpid == self.traffic[-1]:
+                                    print("unpack mpls dpid == traffic[-1]:",dpid)
+                                    out_port = dst_out_port
+                                    pack = self.__remove_mpls(pkt, src_mac, dst_mac)
+                                    pack.serialize()
+                                    data = pack.data
+                                    self.flowSender.packet_out(datapath, in_port, out_port, data)
+                                else:
+                                    print("not path[0] and not path[-1], so this is a BUG!!!")
+                                return
 
     def _get_mpls_label(self,traffic):
         for label in self.path_finder.mpls_to_path.keys():
@@ -166,11 +170,11 @@ class SemiActiveApp(app_manager.RyuApp):
                 return sw
         return None
 
-    def flow_generate(self,src_dpid, dst_dpid):
+    def traffic_generate(self,src_dpid, dst_dpid):
         traffic = []
         all_traffic = self.path_finder.path_table[(src_dpid,dst_dpid)]
         if all_traffic:
-            i = random.randint(0,len(all_traffic)-1)
+            i = random.randint(0,len(all_traffic)-1) # randomly select a path
             traffic = all_traffic[i]
         return traffic
 

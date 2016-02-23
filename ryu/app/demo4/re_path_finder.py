@@ -48,7 +48,7 @@ class PathFinder(app_manager.RyuApp):
 
         self.dpid_to_dp = dict()
 
-        self.SLEEP_PERIOD = 10 #seconds
+        self.SLEEP_PERIOD = 2 #seconds
 
         self.dpids_to_access_port = dict()
 
@@ -167,12 +167,6 @@ class PathFinder(app_manager.RyuApp):
                 elif (src, dst) in links:
                     graph[src][dst] = 1
         return graph
-
-    def _get_hosts(self,host_list):
-        hosts = list()
-        for host in host_list:
-            hosts.append(host.mac)
-        return hosts
 
     def _get_path_table(self, matrix):
         if matrix:

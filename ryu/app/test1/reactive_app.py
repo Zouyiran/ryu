@@ -98,22 +98,22 @@ class ReactiveApp(app_manager.RyuApp):
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
-        if isinstance(ar, arp.arp):
-            print("-----arp packet------")
-            print("dpid:",datapath.id)
-            print(pkt)
-            for each in self.mac_to_port:
-                print "dpid:",each
-                for a in self.mac_to_port[each]:
-                    print "mac:",a,"->","port:",self.mac_to_port[each][a]
-        if isinstance(ic, icmp.icmp):
-            print("-----icmp packet------")
-            print("dpid:",datapath.id)
-            print(pkt)
-            for each in self.mac_to_port:
-                print "dpid:",each
-                for a in self.mac_to_port[each]:
-                    print "mac:",a,"->","port:",self.mac_to_port[each][a]
+        # if isinstance(ar, arp.arp):
+        #     print("-----arp packet------")
+        #     print("dpid:",datapath.id)
+        #     print(pkt)
+        #     for each in self.mac_to_port:
+        #         print "dpid:",each
+        #         for a in self.mac_to_port[each]:
+        #             print "mac:",a,"->","port:",self.mac_to_port[each][a]
+        # if isinstance(ic, icmp.icmp):
+        #     print("-----icmp packet------")
+        #     print("dpid:",datapath.id)
+        #     print(pkt)
+        #     for each in self.mac_to_port:
+        #         print "dpid:",each
+        #         for a in self.mac_to_port[each]:
+        #             print "mac:",a,"->","port:",self.mac_to_port[each][a]
 
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]

@@ -19,8 +19,9 @@ from flow_sender import FlowSender
 
 class PathFinder(app_manager.RyuApp):
     '''
-    only find paths between edge switches: path_table
-
+    topo_aware thread aware the topology --then--> generate adjacency_matrix
+    according to adjacency_matrix --calculate--> path_table ( only find paths between edge switches)
+    if path_table changed --then-->  pre-install(add or delete) mpls flow entries
     '''
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -57,6 +58,7 @@ class PathFinder(app_manager.RyuApp):
         # (dpid,dpid):[[dpid,dpid,dpid],[dpid,dpid,dpid,dpid],...],
         # (dpid,dpid):[[dpid,dpid,dpid],[dpid,dpid,dpid,dpid],...],
         # ...}
+        # just shortest path between edge_switches not contain interior_switches
         self.path_table = dict()
         self.pre_path_table = dict()
 
@@ -68,7 +70,7 @@ class PathFinder(app_manager.RyuApp):
 
         self.SLEEP_PERIOD = 10 #seconds
 
-        self.network_aware_thread = hub.spawn(self.network_aware)
+        self.topo_discover_thread = hub.spawn(self.topo_discover)
 
     # install table-miss flow entry for each switch
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -93,19 +95,23 @@ class PathFinder(app_manager.RyuApp):
                 self.logger.info('un register datapath: %04x', datapath.id)
                 del self.dpid_to_dp[datapath.id]
 
-    def network_aware(self):
+    def topo_discover(self):
         while True:
             hub.sleep(self.SLEEP_PERIOD)
             self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
             self._update_topology()
+
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********network_aware thread: adjacency_matrix CHANGED***********')
                 self.pre_path_table = copy.deepcopy(self.pre_path_table)
                 self.path_table = self._get_path_table(self.adjacency_matrix,self.dpids_to_access_port)
+
                 if self.pre_path_table != self.path_table:
                     self.logger.info('***********network_aware thread: path_table CHANGED***********')
-                    self.pre_install_flows(self.pre_path_table,self.path_table) # delete old mpls_path, add new mpls_path
+                    # delete old mpls_path, add new mpls_path
+                    self.pre_setup_flows(self.pre_path_table,self.path_table)
 
+                    #print for debug
                     self._show_dpids()
                     self._show_links()
                     self._show_dpid_port_to_mac()
@@ -186,7 +192,7 @@ class PathFinder(app_manager.RyuApp):
                     graph[src][dst] = 1
         return graph
 
-    def _get_path_table(self, matrix, dpids_to_access_port):
+    def _get_path_table(self, matrix, dpids_to_access_port): # just get shortest path between edge_switches
         if matrix:
             dpids = matrix.keys()
             g = nx.Graph()
@@ -196,8 +202,9 @@ class PathFinder(app_manager.RyuApp):
                     if matrix[i][j] == 1:
                         g.add_edge(i,j,weight=1)
             edge_dpids = []
-            for edge_dpid in dpids_to_access_port:
-                edge_dpids.append(edge_dpid)
+            for each_dpid in dpids_to_access_port:
+                if len(dpids_to_access_port[each_dpid]) != 0:# get edge_switches
+                    edge_dpids.append(each_dpid)
             return self.__graph_to_path(g, edge_dpids)
 
     def __graph_to_path(self,g, edge_dpids): # {(i,j):[[],[],...],(i,j):[[],[],[],..],...}
@@ -212,7 +219,7 @@ class PathFinder(app_manager.RyuApp):
                         continue
                     for each in nx.all_shortest_paths(g,i,j):# nx.all_simple_paths(g,i,j)
                         path_table[(i,j)].append(each)
-        return path_table # return path between edge dpids
+        return path_table # just return shortest path between edge_switches
 
     def delete_pre_install_flow(self,mpls_to_path):
         print("...................DELETE pre-install flow..................")
@@ -220,9 +227,10 @@ class PathFinder(app_manager.RyuApp):
             self.__delete_flow(each_mpls,mpls_to_path[each_mpls])
 
     # delete old mpls_path, add new mpls_path
-    def pre_install_flows(self,pre_path_table, path_table):
+    def pre_setup_flows(self,pre_path_table, path_table):
         print("...................pre-install flow..................")
         if len(pre_path_table) == 0 and len(path_table) != 0: # inital
+            print("...................initial flows..................")
             self.LABEL = 0
             self.LABEL_BE_USED.clear()
             self.LABEL_RECYCLE.clear()
@@ -238,6 +246,7 @@ class PathFinder(app_manager.RyuApp):
                             self.__add_flow(path,self.LABEL)
                             self.LABEL += 1
         else: # network change
+            print("...................network changed flows..................")
             delete_path_table = dict()
             for dpid_pair in self.pre_path_table:
                 if dpid_pair not in self.path_table:
@@ -289,7 +298,16 @@ class PathFinder(app_manager.RyuApp):
                                 self.LABEL += 1
 
     def __delete_flow(self, path, label):
-        pass
+        n = len(path)
+        if n >2:
+            for i in range(1,n-1):
+                dpid = path[i]
+                priority = OFP_DEFAULT_PRIORITY # 32768 or 0x8000
+                match = {
+                        "dl_type":ether_types.ETH_TYPE_MPLS,
+                        "mpls_label":label,
+                        }
+                self.flowSender.delete_flow_rest(dpid, priority, match)
 
     def __add_flow(self, path, label):
         n = len(path)

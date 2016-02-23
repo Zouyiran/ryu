@@ -1,17 +1,3 @@
-"""
-Dynamic topology
-================
-
-This example shows how to generate a topology, an event schedule and a traffic
-matrix.
-
-In this specific example we create a Waxman topology and create an event
-schedule listing random link failures and restores and generate a static
-traffic matrix.
-
-This scenario could be used to assess the performance of a routing algorithm
-in case of frequent link failures.
-"""
 import fnss
 import random
 from mininet.net import Mininet
@@ -19,6 +5,10 @@ from mininet.link import TCLink
 from mininet.node import OVSController, OVSSwitch, RemoteController, Host, Ryu
 from mininet.cli import CLI
 from mininet.util import dumpNodeConnections
+
+'''
+can be used
+'''
 
 #  create a custom switch extends OVSSwitch
 class CustomSwitch(OVSSwitch):
