@@ -18,6 +18,10 @@ from flow_sender import FlowSender
 
 
 class PathFinder(app_manager.RyuApp):
+    '''
+    only find paths between edge switches: path_table
+
+    '''
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
@@ -54,10 +58,13 @@ class PathFinder(app_manager.RyuApp):
         # (dpid,dpid):[[dpid,dpid,dpid],[dpid,dpid,dpid,dpid],...],
         # ...}
         self.path_table = dict()
+        self.pre_path_table = dict()
 
         self.mpls_to_path = dict()
 
         self.LABEL = 0
+        self.LABEL_BE_USED = set()
+        self.LABEL_RECYCLE = set()
 
         self.SLEEP_PERIOD = 10 #seconds
 
@@ -92,16 +99,19 @@ class PathFinder(app_manager.RyuApp):
             self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
             self._update_topology()
             if self.pre_adjacency_matrix != self.adjacency_matrix:
-                self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
-                self.path_table = self._get_path_table(self.adjacency_matrix)
-                self.pre_install_flow(self.path_table)
+                self.logger.info('***********network_aware thread: adjacency_matrix CHANGED***********')
+                self.pre_path_table = copy.deepcopy(self.pre_path_table)
+                self.path_table = self._get_path_table(self.adjacency_matrix,self.dpids_to_access_port)
+                if self.pre_path_table != self.path_table:
+                    self.logger.info('***********network_aware thread: path_table CHANGED***********')
+                    self.pre_install_flows(self.pre_path_table,self.path_table) # delete old mpls_path, add new mpls_path
 
-                self._show_dpids()
-                self._show_links()
-                self._show_dpid_port_to_mac()
-                self._show_links_dpid_to_port()
-                self._show_matrix()
-                self._show_path_table()
+                    self._show_dpids()
+                    self._show_links()
+                    self._show_dpid_port_to_mac()
+                    self._show_links_dpid_to_port()
+                    self._show_matrix()
+                    self._show_path_table()
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
@@ -112,10 +122,10 @@ class PathFinder(app_manager.RyuApp):
         if len(link_dict) != 0:
             self.links_dpid_to_port = self._get_links_dpid_to_port(link_dict)
             self.links = self._get_links(self.links_dpid_to_port) #[(src.dpid,dst.dpid),(src.dpid,dst.dpid),...]
-        if self.dpids and self.links:
-            self.adjacency_matrix = self._get_adjacency_matrix(self.dpids, self.links)
         if self.dpids_port_to_mac and self.links_dpid_to_port:
             self.dpids_to_access_port = self._get_access_port(self.links_dpid_to_port, self.dpids_port_to_mac)
+        if self.dpids and self.links:
+            self.adjacency_matrix = self._get_adjacency_matrix(self.dpids, self.links)
 
     def _get_dpids_port_to_mac(self,switch_list):
         table = dict()
@@ -144,18 +154,6 @@ class PathFinder(app_manager.RyuApp):
     def _get_links(self,link_ports_table):
         return link_ports_table.keys()
 
-    def _get_adjacency_matrix(self,dpids,links):
-        graph = dict()
-        for src in dpids:
-            graph[src] = dict()
-            for dst in dpids:
-                graph[src][dst] = float('inf')
-                if src == dst:
-                    graph[src][dst] = 0
-                elif (src, dst) in links:
-                    graph[src][dst] = 1
-        return graph
-
     def _get_access_port(self,links_dpid_to_port, dpids_port_to_mac):
         table = dict()
         for dpid in dpids_port_to_mac.keys():
@@ -176,28 +174,19 @@ class PathFinder(app_manager.RyuApp):
                     table[dpid].append(each_port)
         return table # {dpid:[1],dpid:[1,2],dpid:[4],...}
 
-    def _update_hosts(self):
-        host_list = get_all_host(self)
-        if host_list:
-            self.dpids_port_to_host = self._get_dpids_port_to_host(host_list)
-            self.hosts = self._get_hosts(host_list)
+    def _get_adjacency_matrix(self,dpids,links):
+        graph = dict()
+        for src in dpids:
+            graph[src] = dict()
+            for dst in dpids:
+                graph[src][dst] = float('inf')
+                if src == dst:
+                    graph[src][dst] = 0
+                elif (src, dst) in links:
+                    graph[src][dst] = 1
+        return graph
 
-    def _get_dpids_port_to_host(self,host_list):
-        table = dict()
-        for host in host_list:
-            host_mac = host.mac
-            host_port = host.port # Port
-            dpid = host_port.dpid
-            table[(dpid,host_port.port_no)] = host_mac
-        return table
-
-    def _get_hosts(self,host_list):
-        hosts = list()
-        for host in host_list:
-            hosts.append(host.mac)
-        return hosts
-
-    def _get_path_table(self, matrix):
+    def _get_path_table(self, matrix, dpids_to_access_port):
         if matrix:
             dpids = matrix.keys()
             g = nx.Graph()
@@ -206,37 +195,103 @@ class PathFinder(app_manager.RyuApp):
                 for j in dpids:
                     if matrix[i][j] == 1:
                         g.add_edge(i,j,weight=1)
-            return self.__graph_to_path(g)
+            edge_dpids = []
+            for edge_dpid in dpids_to_access_port:
+                edge_dpids.append(edge_dpid)
+            return self.__graph_to_path(g, edge_dpids)
 
-    def __graph_to_path(self,g): # {(i,j):[[],[],...],(i,j):[[],[],[],..],...}
-        all_shortest_paths = dict()
-        for i in g.nodes():
-            for j in g.nodes():
-                if i == j:
-                    continue
-                all_shortest_paths[(i,j)] = list()
-                try:
-                    nx.shortest_path(g,i,j)
-                except nx.exception.NetworkXNoPath:
-                    continue
-                for each in nx.all_shortest_paths(g,i,j):# nx.all_simple_paths(g,i,j)
-                    all_shortest_paths[(i,j)].append(each)
-        return all_shortest_paths
+    def __graph_to_path(self,g, edge_dpids): # {(i,j):[[],[],...],(i,j):[[],[],[],..],...}
+        path_table = dict()
+        for i in edge_dpids:
+            for j in edge_dpids:
+                if i != j:
+                    path_table[(i,j)] = list()
+                    try:
+                        nx.shortest_path(g,i,j)
+                    except nx.exception.NetworkXNoPath:
+                        continue
+                    for each in nx.all_shortest_paths(g,i,j):# nx.all_simple_paths(g,i,j)
+                        path_table[(i,j)].append(each)
+        return path_table # return path between edge dpids
 
-    def pre_install_flow(self,path_table):
-        print("...................pre_install_flow..................")
-        for path_pair in path_table.keys():
-            paths = path_table[path_pair]
-            path_num = len(paths)
-            if path_num > 0:
-                for path in paths:
-                    n = len(path)
-                    if n > 2:
-                        self.mpls_to_path[self.LABEL] = path # record its mpls label
-                        self.__install_flow(path,self.LABEL)
-                        self.LABEL += 1
+    def delete_pre_install_flow(self,mpls_to_path):
+        print("...................DELETE pre-install flow..................")
+        for each_mpls in mpls_to_path.keys():
+            self.__delete_flow(each_mpls,mpls_to_path[each_mpls])
 
-    def __install_flow(self, path, label):
+    # delete old mpls_path, add new mpls_path
+    def pre_install_flows(self,pre_path_table, path_table):
+        print("...................pre-install flow..................")
+        if len(pre_path_table) == 0 and len(path_table) != 0: # inital
+            self.LABEL = 0
+            self.LABEL_BE_USED.clear()
+            self.LABEL_RECYCLE.clear()
+            for path_pair in path_table.keys():
+                paths = path_table[path_pair]
+                path_num = len(paths)
+                if path_num > 0:
+                    for path in paths:
+                        n = len(path)
+                        if n > 2:
+                            self.mpls_to_path[self.LABEL] = path
+                            self.LABEL_BE_USED.add(self.LABEL) # record its mpls label
+                            self.__add_flow(path,self.LABEL)
+                            self.LABEL += 1
+        else: # network change
+            delete_path_table = dict()
+            for dpid_pair in self.pre_path_table:
+                if dpid_pair not in self.path_table:
+                    delete_path_table[dpid_pair] = self.pre_path_table[dpid_pair]
+                elif self.pre_path_table[dpid_pair] != self.path_table[dpid_pair]:
+                    delete_path_table[dpid_pair] = list()
+                    for each_path in self.pre_path_table[dpid_pair]:
+                        if each_path not in self.path_table[dpid_pair]:
+                            delete_path_table[dpid_pair].append(each_path)
+            for dpid_pair in delete_path_table:
+                paths = delete_path_table[dpid_pair]
+                path_num = len(paths)
+                if path_num > 0:
+                    for path in paths:
+                        n = len(path)
+                        if n > 2:
+                            for label in self.mpls_to_path:
+                                if self.mpls_to_path[label] == path:
+                                    self.LABEL_BE_USED.remove(label)
+                                    self.LABEL_RECYCLE.add(label)
+                                    del self.mpls_to_path[label]
+                                    self.__delete_flow(path,label)
+                                    break
+            add_path_table = dict()
+            for dpid_pair in self.path_table:
+                if dpid_pair not in self.pre_path_table:
+                    add_path_table[dpid_pair] = self.path_table[dpid_pair]
+                elif self.pre_path_table[dpid_pair] != self.path_table[dpid_pair]:
+                    add_path_table[dpid_pair] = list()
+                    for each_path in self.path_table[dpid_pair]:
+                        if each_path not in self.pre_path_table[dpid_pair]:
+                            add_path_table[dpid_pair].append(each_path)
+            for dpid_pair in add_path_table:
+                paths = add_path_table[dpid_pair]
+                path_num = len(paths)
+                if path_num > 0:
+                    for path in paths:
+                        n = len(path)
+                        if n > 2:
+                            if self.LABEL_RECYCLE:
+                                label = self.LABEL_RECYCLE.pop()
+                                self.mpls_to_path[label] = path
+                                self.LABEL_BE_USED.add(label)
+                                self.__add_flow(path,label)
+                            else:
+                                self.mpls_to_path[self.LABEL] = path
+                                self.LABEL_BE_USED.add(self.LABEL)
+                                self.__add_flow(path,self.LABEL)
+                                self.LABEL += 1
+
+    def __delete_flow(self, path, label):
+        pass
+
+    def __add_flow(self, path, label):
         n = len(path)
         if n >2:
             for i in range(1,n-1):

@@ -32,6 +32,23 @@ class FlowSender(object):
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
+    # def delete_flow(self, datapath, priority, match, actions,  buffer_id=None, idle_timeout=0, hard_timeout=0):
+    #     ofproto = datapath.ofproto
+    #     parser = datapath.ofproto_parser
+    #     inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+    #                                          actions)]
+    #     if buffer_id:
+    #         mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+    #                                 idle_timeout=idle_timeout, hard_timeout=hard_timeout,
+    #                                 match=match,instructions=inst,
+    #                                 buffer_id=buffer_id)
+    #     else:
+    #         mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+    #                                 idle_timeout=idle_timeout, hard_timeout=hard_timeout,
+    #                                 match=match, instructions=inst)
+    #     datapath.send_msg(mod)
+
+
     def add_flow_rest_1(self, dpid, priority, match, actions):
         uri = "/stats/flowentry/add"
         data = {"dpid":dpid,
@@ -47,6 +64,17 @@ class FlowSender(object):
         data = {"dpid":dpid,
                 "table_id":0,
                 "buffer_id":buffer_id,
+                "priority": priority,
+                "match":match, # match {}
+                "actions":actions # actions []
+                }
+        requests.post(url=self.IP+uri,data=str(data))
+
+    def delete_flow_rest(self, dpid, priority, match, actions):
+        # delete flow entry strictly matching wildcards and priority
+        uri = "/stats/flowentry/delete_strict"
+        data = {"dpid":dpid,
+                "table_id":0,
                 "priority": priority,
                 "match":match, # match {}
                 "actions":actions # actions []
