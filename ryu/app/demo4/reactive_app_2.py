@@ -9,7 +9,7 @@ from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.lib import dpid as dpid_lib
 from ryu.lib import stplib
-from ryu.lib.packet import packet, ethernet, arp, ipv4, icmp, ether_types, tcp
+from ryu.lib.packet import packet, ethernet, arp, ipv4, ipv6, icmp, ether_types, tcp
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 
@@ -31,7 +31,7 @@ class ReactiveApp(app_manager.RyuApp):
     _CONTEXTS = {
         'PathFinder': re_path_finder.PathFinder,
 
-    } # 'stplib': stplib.Stp
+    }# 'stplib': stplib.Stp
 
     def __init__(self, *args, **kwargs):
         super(ReactiveApp, self).__init__(*args, **kwargs)
@@ -45,7 +45,7 @@ class ReactiveApp(app_manager.RyuApp):
         self.mac_to_port = {}
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) #stplib.EventPacketIn
-    def packet_in_handler_stp(self, ev):
+    def packet_in_handler(self, ev):
         msg = ev.msg
         buffer_id = msg.buffer_id
         datapath = msg.datapath
@@ -55,15 +55,15 @@ class ReactiveApp(app_manager.RyuApp):
         in_port = msg.match['in_port']
 
         pkt = packet.Packet(msg.data)
+
         eth = pkt.get_protocols(ethernet.ethernet)[0]
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
 
-        pkt = packet.Packet(msg.data)
         arp_pkt = pkt.get_protocol(arp.arp)
         if isinstance(arp_pkt, arp.arp): # arp request and arp reply
-            print("------arp----------")
-            print("dpid:",datapath.id)
+            # print("------arp----------")
+            # print("dpid:",datapath.id)
             arp_src_ip = arp_pkt.src_ip
             arp_dst_ip = arp_pkt.dst_ip
             self.dpid_ip_to_port.setdefault(dpid,{})
@@ -75,32 +75,82 @@ class ReactiveApp(app_manager.RyuApp):
             data = msg.data
             self.flowSender.packet_out(datapath, in_port, out_port, data)
             self.register_access_info(dpid, arp_src_ip, in_port)
+            return
 
-        ip_pkt = pkt.get_protocol(ipv4.ipv4)
-        if isinstance(ip_pkt,ipv4.ipv4): # ipv4
-            src_ip = ip_pkt.src
-            dst_ip = ip_pkt.dst
-            icmp_pkt = pkt.get_protocol(icmp.icmp)
-            if isinstance(icmp_pkt,icmp.icmp):
-                print('-------icmp---------')
-                print("src_ip:",src_ip)
-                print("dst_ip:",dst_ip)
-                src_sw = self._get_host_location(src_ip)
-                dst_sw = self._get_host_location(dst_ip)
-                if src_sw and dst_sw:
+        # tcp_pkt = pkt.get_protocol(tcp.tcp)
+        # if isinstance(tcp_pkt,tcp.tcp):
+        #     print("--------tcp-------------")
+        #     print("dpid:",datapath.id)
+        #     src_tcp = tcp_pkt.src_port
+        #     dst_tcp = tcp_pkt.dst_port
+        #     ip_pkt = pkt.get_protocol(ipv4.ipv4)
+        #     if isinstance(ip_pkt,ipv4.ipv4):
+        #         src_ip = ip_pkt.src
+        #         dst_ip = ip_pkt.dst
+        #         src_sw = self._get_host_location(src_ip)
+        #         dst_sw = self._get_host_location(dst_ip)
+        #         if src_sw and dst_sw:
+        #             print("--------ipv4 end to end-------------")
+        #             print("dpid:",datapath.id)
+        #             src_dpid = src_sw[0]
+        #             dst_dpid = dst_sw[0]
+        #             src_in_port = src_sw[1]
+        #             dst_out_port = dst_sw[1]
+        #             if src_dpid == dst_dpid and src_dpid == dpid:
+        #                 print("src_dpid == dst_dpid")
+        #                 priority = OFP_DEFAULT_PRIORITY
+        #                 match = {
+        #                     "dl_type":ether_types.ETH_TYPE_IP,
+        #                     "in_port":in_port,
+        #                     "nw_dst":dst_ip,
+        #                     "tp_src":src_tcp,
+        #                     "tp_dst":dst_tcp
+        #                         }
+        #                 actions = [{"type":"OUTPUT","port":dst_out_port}]
+        #                 if buffer_id != ofproto.OFP_NO_BUFFER:
+        #                     self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
+        #                 else:
+        #                     self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
+        #                     data = msg.data
+        #                     self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
+        #             else:
+        #                 print("src_dpid != dst_dpid")
+        #                 if dpid == src_dpid:
+        #                     self.traffic = self.get_traffic(src_dpid,dst_dpid)
+        #                 if self.traffic: # end-to-end reachable
+        #                     self.install_flow_2(self.traffic,src_ip, dst_ip,src_in_port,dst_out_port,src_tcp, dst_tcp)
+        #                     data = msg.data
+        #                     out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
+        #                     self.flowSender.packet_out(datapath, in_port, out_port, data)
+        #     return
+
+        ipv6_pkt = pkt.get_protocol(ipv4.ipv4)
+        if isinstance(ipv6_pkt,ipv4.ipv4):
+            # print('------ipv6-------')
+            src_ip = ipv6_pkt.src
+            dst_ip = ipv6_pkt.dst
+            src_sw = self._get_host_location(src_ip)
+            dst_sw = self._get_host_location(dst_ip)
+            if src_sw and dst_sw:# end-to-end connection
+                tcp_pkt = pkt.get_protocol(tcp.tcp)
+                if isinstance(tcp_pkt,tcp.tcp):
+                    print("----tcp-------")
+                    src_tcp = tcp_pkt.src_port
+                    dst_tcp = tcp_pkt.dst_port
                     src_dpid = src_sw[0]
-                    print("src_dpid:",src_dpid)
                     dst_dpid = dst_sw[0]
-                    print("dst_dpid:",dst_dpid)
                     src_in_port = src_sw[1]
                     dst_out_port = dst_sw[1]
                     if src_dpid == dst_dpid and src_dpid == dpid:
                         print("src_dpid == dst_dpid")
                         priority = OFP_DEFAULT_PRIORITY
                         match = {
-                                "dl_type":ether_types.ETH_TYPE_IP,
-                                "in_port":in_port,
-                                "nw_dst":dst_ip,
+                            "dl_type":ether_types.ETH_TYPE_IP,
+                            "nw_proto":6,
+                            "in_port":in_port,
+                            "nw_dst":dst_ip,
+                            "tp_src":src_tcp,
+                            "tp_dst":dst_tcp
                                 }
                         actions = [{"type":"OUTPUT","port":dst_out_port}]
                         if buffer_id != ofproto.OFP_NO_BUFFER:
@@ -114,148 +164,49 @@ class ReactiveApp(app_manager.RyuApp):
                         if dpid == src_dpid:
                             self.traffic = self.get_traffic(src_dpid,dst_dpid)
                         if self.traffic: # end-to-end reachable
-                            self.install_flow(self.traffic,dst_ip,src_in_port,dst_out_port)
+                            self.install_flow_2(self.traffic,src_ip, dst_ip,src_in_port,dst_out_port,src_tcp, dst_tcp)
                             data = msg.data
                             out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
                             self.flowSender.packet_out(datapath, in_port, out_port, data)
+                    return
 
-    # @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    # def packet_in_handler(self, ev):
-    #     msg = ev.msg
-    #     buffer_id = msg.buffer_id
-    #     datapath = msg.datapath
-    #     ofproto = datapath.ofproto
-    #     parser = datapath.ofproto_parser
-    #     dpid = datapath.id
-    #     in_port = msg.match['in_port']
-    #
-    #     pkt = packet.Packet(msg.data)
-    #     eth = pkt.get_protocols(ethernet.ethernet)[0]
-    #     if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-    #         return
-    #
-    #     # tcp_pkt = pkt.get_protocol(tcp.tcp)
-    #     # if isinstance(tcp_pkt,tcp.tcp):
-    #     #     print("--------tcp-------------")
-    #     #     src_tcp = tcp_pkt.src_port
-    #     #     dst_tcp = tcp_pkt.dst_port
-    #     #     ip_pkt = pkt.get_protocol(ipv4.ipv4)
-    #     #     if isinstance(ip_pkt,ipv4.ipv4):
-    #     #         src_ip = ip_pkt.src
-    #     #         dst_ip = ip_pkt.dst
-    #     #         src_sw = self._get_host_location(src_ip)
-    #     #         dst_sw = self._get_host_location(dst_ip)
-    #     #         if src_sw and dst_sw:
-    #     #             src_dpid = src_sw[0]
-    #     #             dst_dpid = dst_sw[0]
-    #     #             src_in_port = src_sw[1]
-    #     #             dst_out_port = dst_sw[1]
-    #     #             if src_dpid == dst_dpid and src_dpid == dpid:
-    #     #                 print("src_dpid == dst_dpid")
-    #     #                 priority = OFP_DEFAULT_PRIORITY
-    #     #                 match = {
-    #     #                     "dl_type":ether_types.ETH_TYPE_IP,
-    #     #                     "in_port":in_port,
-    #     #                     "nw_src:":src_ip,
-    #     #                     "nw_dst":dst_ip,
-    #     #                     "tp_src":src_tcp,
-    #     #                     "tp_dst":dst_tcp
-    #     #                         }
-    #     #                 actions = [{"type":"OUTPUT","port":dst_out_port}]
-    #     #                 if buffer_id != ofproto.OFP_NO_BUFFER:
-    #     #                     self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
-    #     #                 else:
-    #     #                     self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
-    #     #                     data = msg.data
-    #     #                     self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
-    #     #             else:
-    #     #                 print("src_dpid != dst_dpid")
-    #     #                 if dpid == src_dpid:
-    #     #                     self.traffic = self.get_traffic(src_dpid,dst_dpid)
-    #     #                 if self.traffic: # end-to-end reachable
-    #     #                     self.install_flow_2(self.traffic,src_ip, dst_ip,src_in_port,dst_out_port,src_tcp, dst_tcp)
-    #     #                     data = msg.data
-    #     #                     out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
-    #     #                     self.flowSender.packet_out(datapath, in_port, out_port, data)
-    #     #     return
-    #
-    #     ip_pkt = pkt.get_protocol(ipv4.ipv4)
-    #     if isinstance(ip_pkt,ipv4.ipv4): # ipv4
-    #         src_ip = ip_pkt.src
-    #         dst_ip = ip_pkt.dst
-    #         icmp_pkt = pkt.get_protocol(icmp.icmp)
-    #         if isinstance(icmp_pkt,icmp.icmp):
-    #             print('-------icmp---------')
-    #             print("src_ip:",src_ip)
-    #             print("dst_ip:",dst_ip)
-    #             src_sw = self._get_host_location(src_ip)
-    #             dst_sw = self._get_host_location(dst_ip)
-    #             if src_sw and dst_sw:
-    #                 src_dpid = src_sw[0]
-    #                 print("src_dpid:",src_dpid)
-    #                 dst_dpid = dst_sw[0]
-    #                 print("dst_dpid:",dst_dpid)
-    #                 src_in_port = src_sw[1]
-    #                 dst_out_port = dst_sw[1]
-    #                 if src_dpid == dst_dpid and src_dpid == dpid:
-    #                     print("src_dpid == dst_dpid")
-    #                     priority = OFP_DEFAULT_PRIORITY
-    #                     match = {
-    #                             "dl_type":ether_types.ETH_TYPE_IP,
-    #                             "in_port":in_port,
-    #                             "nw_dst":dst_ip,
-    #                             }
-    #                     actions = [{"type":"OUTPUT","port":dst_out_port}]
-    #                     if buffer_id != ofproto.OFP_NO_BUFFER:
-    #                         self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
-    #                     else:
-    #                         self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
-    #                         data = msg.data
-    #                         self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
-    #                 else:
-    #                     print("src_dpid != dst_dpid")
-    #                     if dpid == src_dpid:
-    #                         self.traffic = self.get_traffic(src_dpid,dst_dpid)
-    #                     if self.traffic: # end-to-end reachable
-    #                         self.install_flow(self.traffic,dst_ip,src_in_port,dst_out_port)
-    #                         data = msg.data
-    #                         out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
-    #                         self.flowSender.packet_out(datapath, in_port, out_port, data)
-    #         return
-
-    # @set_ev_cls(stplib.EventTopologyChange, MAIN_DISPATCHER)
-    # def _topology_change_handler(self, ev):
-    #     dp = ev.dp
-    #     dpid_str = dpid_lib.dpid_to_str(dp.id)
-    #     msg = 'Receive topology change event. Flush MAC table.'
-    #     self.logger.debug("[dpid=%s] %s", dpid_str, msg)
-    #
-    #     if dp.id in self.mac_to_port:
-    #         self.delete_flow(dp)
-    #         del self.mac_to_port[dp.id]
-    #
-    # def delete_flow(self, datapath):
-    #     ofproto = datapath.ofproto
-    #     parser = datapath.ofproto_parser
-    #
-    #     for dst in self.mac_to_port[datapath.id].keys():
-    #         match = parser.OFPMatch(eth_dst=dst)
-    #         mod = parser.OFPFlowMod(
-    #             datapath, command=ofproto.OFPFC_DELETE,
-    #             out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY,
-    #             priority=1, match=match)
-    #         datapath.send_msg(mod)
-    #
-    # @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
-    # def _port_state_change_handler(self, ev):
-    #     dpid_str = dpid_lib.dpid_to_str(ev.dp.id)
-    #     of_state = {stplib.PORT_STATE_DISABLE: 'DISABLE',
-    #                 stplib.PORT_STATE_BLOCK: 'BLOCK',
-    #                 stplib.PORT_STATE_LISTEN: 'LISTEN',
-    #                 stplib.PORT_STATE_LEARN: 'LEARN',
-    #                 stplib.PORT_STATE_FORWARD: 'FORWARD'}
-    #     self.logger.debug("[dpid=%s][port=%d] state=%s",
-    #                       dpid_str, ev.port_no, of_state[ev.port_state])
+        # ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+        # if isinstance(ipv4_pkt,ipv4.ipv4):
+        #     # print('------ipv4-------')
+        #     src_ip = ipv4_pkt.src
+        #     dst_ip = ipv4_pkt.dst
+        #     src_sw = self._get_host_location(src_ip)
+        #     dst_sw = self._get_host_location(dst_ip)
+        #     if src_sw and dst_sw:# end-to-end connection
+        #         src_dpid = src_sw[0]
+        #         dst_dpid = dst_sw[0]
+        #         src_in_port = src_sw[1]
+        #         dst_out_port = dst_sw[1]
+        #         if src_dpid == dst_dpid and src_dpid == dpid:
+        #             print("src_dpid == dst_dpid:",src_dpid)
+        #             priority = OFP_DEFAULT_PRIORITY
+        #             match = {
+        #                     "dl_type":ether_types.ETH_TYPE_IP,
+        #                     "in_port":in_port,
+        #                     "nw_dst":dst_ip,
+        #                     }
+        #             actions = [{"type":"OUTPUT","port":dst_out_port}]
+        #             if buffer_id != ofproto.OFP_NO_BUFFER:
+        #                 self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
+        #             else:
+        #                 self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
+        #                 data = msg.data
+        #                 self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
+        #         else:
+        #             print("src_dpid != dst_dpid:",src_dpid,dst_dpid)
+        #             if dpid == src_dpid:
+        #                 self.traffic = self.get_traffic(src_dpid,dst_dpid)
+        #             if self.traffic: # end-to-end reachable
+        #                 self.install_flow(self.traffic,dst_ip,src_in_port,dst_out_port)
+        #                 data = msg.data
+        #                 out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
+        #                 self.flowSender.packet_out(datapath, in_port, out_port, data)
+        #     return
 
 
     def register_access_info(self, dpid, ip, port):
@@ -320,8 +271,8 @@ class ReactiveApp(app_manager.RyuApp):
                 out_port = self.path_finder.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
             match = {
                     "dl_type":ether_types.ETH_TYPE_IP,
+                    "nw_proto":6,
                     "in_port":in_port,
-                    "nw_src:":src_ip,
                     "nw_dst":dst_ip,
                     "tp_src":src_tcp,
                     "tp_dst":dst_tcp

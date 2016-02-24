@@ -68,7 +68,7 @@ class PathFinder(app_manager.RyuApp):
         self.LABEL_BE_USED = set()
         self.LABEL_RECYCLE = set()
 
-        self.SLEEP_PERIOD = 10 #seconds
+        self.SLEEP_PERIOD = 4 #seconds
 
         self.topo_discover_thread = hub.spawn(self.topo_discover)
 
@@ -195,7 +195,7 @@ class PathFinder(app_manager.RyuApp):
     def _get_path_table(self, matrix, dpids_to_access_port): # just get shortest path between edge_switches
         if matrix:
             dpids = matrix.keys()
-            g = nx.Graph()
+            g = nx.DiGraph()
             g.add_nodes_from(dpids)
             for i in dpids:
                 for j in dpids:

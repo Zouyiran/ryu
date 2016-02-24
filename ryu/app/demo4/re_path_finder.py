@@ -45,10 +45,11 @@ class PathFinder(app_manager.RyuApp):
         # (dpid,dpid):{xxx:[dpid,dpid,dpid],xxx:[dpid,dpid,dpid,dpid],...},
         # ...}
         self.path_table = dict()
+        self.pre_path_table = dict()
 
         self.dpid_to_dp = dict()
 
-        self.SLEEP_PERIOD = 2 #seconds
+        self.SLEEP_PERIOD = 4 #seconds
 
         self.dpids_to_access_port = dict()
 
@@ -83,9 +84,14 @@ class PathFinder(app_manager.RyuApp):
             hub.sleep(self.SLEEP_PERIOD)
             self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
             self._update_topology()
+
             if self.pre_adjacency_matrix != self.adjacency_matrix:
-                self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
-                self.path_table = self._get_path_table(self.adjacency_matrix)
+                self.logger.info('***********network_aware thread: adjacency_matrix CHANGED***********')
+                self.pre_path_table = copy.deepcopy(self.pre_path_table)
+                self.path_table = self._get_path_table(self.adjacency_matrix,self.dpids_to_access_port)
+
+                if self.pre_path_table != self.path_table:
+                    self.logger.info('***********network_aware thread: path_table CHANGED***********')
 
                 self._show_dpids()
                 self._show_links_dpid_to_port()
@@ -168,7 +174,7 @@ class PathFinder(app_manager.RyuApp):
                     graph[src][dst] = 1
         return graph
 
-    def _get_path_table(self, matrix):
+    def _get_path_table(self, matrix, dpids_to_access_port): # just get shortest path between edge_switches
         if matrix:
             dpids = matrix.keys()
             g = nx.DiGraph()
@@ -177,22 +183,51 @@ class PathFinder(app_manager.RyuApp):
                 for j in dpids:
                     if matrix[i][j] == 1:
                         g.add_edge(i,j,weight=1)
-            return self.__graph_to_path(g)
+            edge_dpids = []
+            for each_dpid in dpids_to_access_port:
+                if len(dpids_to_access_port[each_dpid]) != 0:# get edge_switches
+                    edge_dpids.append(each_dpid)
+            return self.__graph_to_path(g, edge_dpids)
 
-    def __graph_to_path(self,g): # no mpls label
-        all_shortest_paths = dict()
-        for i in g.nodes():
-            for j in g.nodes():
-                if i == j:
-                    continue
-                all_shortest_paths[(i,j)] = list()
-                try:
-                    nx.shortest_path(g,i,j)
-                except nx.exception.NetworkXNoPath:
-                    continue
-                for each in nx.all_shortest_paths(g,i,j):
-                    all_shortest_paths[(i,j)].append(each)
-        return all_shortest_paths
+    def __graph_to_path(self,g, edge_dpids): # {(i,j):[[],[],...],(i,j):[[],[],[],..],...}
+        path_table = dict()
+        for i in edge_dpids:
+            for j in edge_dpids:
+                if i != j:
+                    path_table[(i,j)] = list()
+                    try:
+                        nx.shortest_path(g,i,j)
+                    except nx.exception.NetworkXNoPath:
+                        continue
+                    for each in nx.all_shortest_paths(g,i,j):# nx.all_simple_paths(g,i,j)
+                        path_table[(i,j)].append(each)
+        return path_table # just return shortest path between edge_switches
+
+    # def _get_path_table(self, matrix):
+    #     if matrix:
+    #         dpids = matrix.keys()
+    #         g = nx.DiGraph()
+    #         g.add_nodes_from(dpids)
+    #         for i in dpids:
+    #             for j in dpids:
+    #                 if matrix[i][j] == 1:
+    #                     g.add_edge(i,j,weight=1)
+    #         return self.__graph_to_path(g)
+    #
+    # def __graph_to_path(self,g): # no mpls label
+    #     all_shortest_paths = dict()
+    #     for i in g.nodes():
+    #         for j in g.nodes():
+    #             if i == j:
+    #                 continue
+    #             all_shortest_paths[(i,j)] = list()
+    #             try:
+    #                 nx.shortest_path(g,i,j)
+    #             except nx.exception.NetworkXNoPath:
+    #                 continue
+    #             for each in nx.all_shortest_paths(g,i,j):
+    #                 all_shortest_paths[(i,j)].append(each)
+    #     return all_shortest_paths
 
 
 #---------------------Print_to_debug------------------------
