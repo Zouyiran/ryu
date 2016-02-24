@@ -23,8 +23,8 @@ class CustomTopo(Topo):
             switch_name = 's'+str(switch+1)
             switches.append(self.addSwitch(switch_name))
 
-        hosts.append(self.addHost('h1',mac='00:00:00:00:00:01'))
-        hosts.append(self.addHost('h2',mac='00:00:00:00:00:02'))
+        hosts.append(self.addHost('h1',mac='00:00:00:00:00:01',ip='10.0.0.1'))
+        hosts.append(self.addHost('h2',mac='00:00:00:00:00:02',ip='10.0.0.2'))
 
         for count in range(self.switch_num): #
             if count == self.switch_num - 1:
@@ -50,7 +50,7 @@ CONTROLLER_IP = "127.0.0.1"
 CONTROLLER_PORT = 6633
 
 def main():
-    topo = CustomTopo(7)
+    topo = CustomTopo(6)
     net = Mininet(topo=topo,
                   link=TCLink,
                   switch=CustomSwitch,
@@ -59,10 +59,18 @@ def main():
     net.addController( controller=RemoteController,
                        ip=CONTROLLER_IP,
                        port=CONTROLLER_PORT)
+    net.staticArp()
 
     net.start()
+    time.sleep(1)
+    # traffic(net)
+    net.monitor(timeoutms=5)
     CLI(net)
     net.stop()
+
+def traffic(net):
+    hosts = [net.getNodeByName('h1'),net.getNodeByName('h2')]
+    net.iperf(hosts=hosts, l4Type='TCP',seconds=10)
 
 if __name__ == '__main__':
     setLogLevel('info')

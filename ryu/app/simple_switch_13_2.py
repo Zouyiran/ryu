@@ -19,7 +19,7 @@ from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet, icmp
+from ryu.lib.packet import ethernet, icmp, arp
 from ryu.lib.packet import ether_types
 
 
@@ -82,16 +82,20 @@ class SimpleSwitch13(app_manager.RyuApp):
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # ignore lldp packet
             return
+
+        arp_pkt = pkt.get_protocol(arp.arp)
+        if isinstance(arp_pkt, arp.arp): # arp request and arp reply
+            print("------arp----------")
+
         dst = eth.dst
         src = eth.src
         ic = pkt.get_protocol(icmp.icmp)
         if ic:
             print("----------icmp----------")
+            print("dpid:",datapath.id)
             print("in_port:",in_port)
             print("src_mac:",src)
             print("dst_mac:",dst)
-            print("dst_mac:",dst)
-
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 

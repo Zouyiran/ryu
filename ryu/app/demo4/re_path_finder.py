@@ -88,7 +88,7 @@ class PathFinder(app_manager.RyuApp):
                 self.path_table = self._get_path_table(self.adjacency_matrix)
 
                 self._show_dpids()
-                self._show_links()
+                self._show_links_dpid_to_port()
                 self._show_dpid_port_to_mac()
                 self._show_matrix()
                 self._show_path_table()
@@ -171,7 +171,7 @@ class PathFinder(app_manager.RyuApp):
     def _get_path_table(self, matrix):
         if matrix:
             dpids = matrix.keys()
-            g = nx.Graph()
+            g = nx.DiGraph()
             g.add_nodes_from(dpids)
             for i in dpids:
                 for j in dpids:

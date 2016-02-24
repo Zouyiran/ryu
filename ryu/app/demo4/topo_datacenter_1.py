@@ -34,17 +34,18 @@ class CustomTopo(Topo):
         hosts.append(self.addHost('h4',mac='00:00:00:00:00:04'))
         hosts.append(self.addHost('h5',mac='00:00:00:00:00:05'))
         hosts.append(self.addHost('h6',mac='00:00:00:00:00:06'))
-        hosts.append(self.addHost('h7',mac='00:00:00:00:00:07'))
 
 # addLink( self, node1, node2, port1=None, port2=None,key=None, **opts )
         # add Links between switches
-        self.addLink(switches[0],switches[1])
-        self.addLink(switches[1],switches[2])
-        self.addLink(switches[2],switches[0])
         self.addLink(switches[0],switches[3])
+        self.addLink(switches[0],switches[4])
+        self.addLink(switches[0],switches[5])
+        self.addLink(switches[1],switches[3])
         self.addLink(switches[1],switches[4])
+        self.addLink(switches[1],switches[5])
+        self.addLink(switches[2],switches[3])
+        self.addLink(switches[2],switches[4])
         self.addLink(switches[2],switches[5])
-        self.addLink(switches[3],switches[5])
 
         # add Linkes between switches and hosts
         self.addLink(switches[3],hosts[0], bw=1)
@@ -53,7 +54,6 @@ class CustomTopo(Topo):
         self.addLink(switches[4],hosts[3], bw=1)
         self.addLink(switches[5],hosts[4], bw=1)
         self.addLink(switches[5],hosts[5], bw=1)
-        self.addLink(switches[0],hosts[6], bw=1)
 
 #  create a custom switch extends OVSSwitch
 class CustomSwitch(OVSSwitch):
