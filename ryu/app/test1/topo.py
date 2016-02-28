@@ -28,12 +28,12 @@ class CustomTopo(Topo):
 
         for count in range(self.switch_num): #
             if count == self.switch_num - 1:
-                delay = random.randint(1,5)
+                delay = random.randint(1,1)
                 self.addLink(switches[0],hosts[0],delay=str(delay)+"ms") #
-                delay = random.randint(1,5)
+                delay = random.randint(1,1)
                 self.addLink(switches[self.switch_num-1],hosts[1],delay=str(delay)+"ms") #
             else:
-                delay = random.randint(1,5)
+                delay = random.randint(1,1)
                 self.addLink(switches[count],switches[count+1],delay=str(delay)+"ms") #,delay=str(delay)+"ms"
 
 
@@ -49,8 +49,8 @@ class CustomSwitch(OVSSwitch):
 CONTROLLER_IP = "127.0.0.1"
 CONTROLLER_PORT = 6633
 
-def main():
-    topo = CustomTopo(7)
+def main(n_switches, count_ping):
+    topo = CustomTopo(n_switches)
     net = Mininet(topo=topo,
                   link=TCLink,
                   switch=CustomSwitch,
@@ -61,12 +61,29 @@ def main():
                        port=CONTROLLER_PORT)
 
     net.start()
+    time.sleep(10)
+
+    hosts = [net.getNodeByName('h1'),net.getNodeByName('h2')]
+    rtt_list = list()
+    for count in range(1,count_ping+1):
+        all_res = net.pingFull(hosts)
+        res = all_res[0] # h1 -> h2 rtt
+        src, dest, ping_outputs = res
+        sent, received, rttmin, rttavg, rttmax, rttdev = ping_outputs
+        if sent == received:
+            rtt_latency = rttavg
+        else:
+            rtt_latency = 0
+        rtt_list.append(rtt_latency)
+    print(rtt_list)
+
     CLI(net)
     net.stop()
+
 
 if __name__ == '__main__':
     setLogLevel('info')
     if os.getuid() != 0:
         logging.debug("You are NOT root")
     else:
-        main()
+        main(10,10)
