@@ -15,7 +15,10 @@ from ryu.lib.packet import ethernet, arp, icmp
 from ryu.lib.packet import ether_types
 from ryu.lib import hub
 
-
+'''
+for linear topology:
+pre-install flow entries for end-to-end hosts('h1' and 'h2')
+'''
 class ProactiveApp(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
