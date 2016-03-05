@@ -80,6 +80,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         eth = pkt.get_protocols(ethernet.ethernet)[0]
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
+        arp_pkt = pkt.get_protocol(arp.arp)
+        if isinstance(arp_pkt, arp.arp):
+            print(arp_pkt)
+            print("-------------")
 
         dst = eth.dst
         src = eth.src

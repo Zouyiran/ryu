@@ -30,7 +30,7 @@ class RPCServer(object):
         The handler function will try to decode the message using the supplied
         protocol, if that fails, an error response will be sent. After decoding
         the message, the dispatcher will be asked to handle the resultung
-        request and the return value (either an error or a result) will be sent
+        request and the return value (either an error or a result_backup) will be sent
         back to the client using the transport.
 
         After calling :py:func:`~tinyrpc.server.RPCServer._spawn`, the server

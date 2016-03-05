@@ -275,7 +275,7 @@ class Client(object):
     def call(self, method, params):
         """synchronous call.
         send a request and wait for a response.
-        return a result.  or raise RPCError exception if the peer
+        return a result_backup.  or raise RPCError exception if the peer
         sends us an error.
         """
         msgid = self._endpoint.send_request(method, params)

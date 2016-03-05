@@ -77,70 +77,25 @@ class ReactiveApp(app_manager.RyuApp):
             self.register_access_info(dpid, arp_src_ip, in_port)
             return
 
-        # tcp_pkt = pkt.get_protocol(tcp.tcp)
-        # if isinstance(tcp_pkt,tcp.tcp):
-        #     print("--------tcp-------------")
-        #     print("dpid:",datapath.id)
-        #     src_tcp = tcp_pkt.src_port
-        #     dst_tcp = tcp_pkt.dst_port
-        #     ip_pkt = pkt.get_protocol(ipv4.ipv4)
-        #     if isinstance(ip_pkt,ipv4.ipv4):
-        #         src_ip = ip_pkt.src
-        #         dst_ip = ip_pkt.dst
-        #         src_sw = self._get_host_location(src_ip)
-        #         dst_sw = self._get_host_location(dst_ip)
-        #         if src_sw and dst_sw:
-        #             print("--------ipv4 end to end-------------")
-        #             print("dpid:",datapath.id)
-        #             src_dpid = src_sw[0]
-        #             dst_dpid = dst_sw[0]
-        #             src_in_port = src_sw[1]
-        #             dst_out_port = dst_sw[1]
-        #             if src_dpid == dst_dpid and src_dpid == dpid:
-        #                 print("src_dpid == dst_dpid")
-        #                 priority = OFP_DEFAULT_PRIORITY
-        #                 match = {
-        #                     "dl_type":ether_types.ETH_TYPE_IP,
-        #                     "in_port":in_port,
-        #                     "nw_dst":dst_ip,
-        #                     "tp_src":src_tcp,
-        #                     "tp_dst":dst_tcp
-        #                         }
-        #                 actions = [{"type":"OUTPUT","port":dst_out_port}]
-        #                 if buffer_id != ofproto.OFP_NO_BUFFER:
-        #                     self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
-        #                 else:
-        #                     self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
-        #                     data = msg.data
-        #                     self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
-        #             else:
-        #                 print("src_dpid != dst_dpid")
-        #                 if dpid == src_dpid:
-        #                     self.traffic = self.get_traffic(src_dpid,dst_dpid)
-        #                 if self.traffic: # end-to-end reachable
-        #                     self.install_flow_2(self.traffic,src_ip, dst_ip,src_in_port,dst_out_port,src_tcp, dst_tcp)
-        #                     data = msg.data
-        #                     out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
-        #                     self.flowSender.packet_out(datapath, in_port, out_port, data)
-        #     return
-
-        ipv6_pkt = pkt.get_protocol(ipv4.ipv4)
-        if isinstance(ipv6_pkt,ipv4.ipv4):
-            # print('------ipv6-------')
-            src_ip = ipv6_pkt.src
-            dst_ip = ipv6_pkt.dst
+        ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+        if isinstance(ipv4_pkt,ipv4.ipv4):
+            src_ip = ipv4_pkt.src
+            dst_ip = ipv4_pkt.dst
             src_sw = self._get_host_location(src_ip)
             dst_sw = self._get_host_location(dst_ip)
             if src_sw and dst_sw:# end-to-end connection
+                src_dpid = src_sw[0]
+                dst_dpid = dst_sw[0]
+                src_in_port = src_sw[1]
+                dst_out_port = dst_sw[1]
+
+                icmp_pkt = pkt.get_protocol(icmp.icmp)
                 tcp_pkt = pkt.get_protocol(tcp.tcp)
+
                 if isinstance(tcp_pkt,tcp.tcp):
                     print("----tcp-------")
                     src_tcp = tcp_pkt.src_port
                     dst_tcp = tcp_pkt.dst_port
-                    src_dpid = src_sw[0]
-                    dst_dpid = dst_sw[0]
-                    src_in_port = src_sw[1]
-                    dst_out_port = dst_sw[1]
                     if src_dpid == dst_dpid and src_dpid == dpid:
                         print("src_dpid == dst_dpid")
                         priority = OFP_DEFAULT_PRIORITY
@@ -148,15 +103,16 @@ class ReactiveApp(app_manager.RyuApp):
                             "dl_type":ether_types.ETH_TYPE_IP,
                             "nw_proto":6,
                             "in_port":in_port,
+                            "nw_src":src_ip,
                             "nw_dst":dst_ip,
                             "tp_src":src_tcp,
                             "tp_dst":dst_tcp
                                 }
                         actions = [{"type":"OUTPUT","port":dst_out_port}]
                         if buffer_id != ofproto.OFP_NO_BUFFER:
-                            self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
+                            self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id, 100)
                         else:
-                            self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
+                            self.flowSender.add_flow_rest_1(dpid, priority, match, actions, 100)
                             data = msg.data
                             self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
                     else:
@@ -164,50 +120,41 @@ class ReactiveApp(app_manager.RyuApp):
                         if dpid == src_dpid:
                             self.traffic = self.get_traffic(src_dpid,dst_dpid)
                         if self.traffic: # end-to-end reachable
-                            self.install_flow_2(self.traffic,src_ip, dst_ip,src_in_port,dst_out_port,src_tcp, dst_tcp)
+                            self.install_flow_tcp(self.traffic, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
                             data = msg.data
                             out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
                             self.flowSender.packet_out(datapath, in_port, out_port, data)
                     return
 
-        # ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
-        # if isinstance(ipv4_pkt,ipv4.ipv4):
-        #     # print('------ipv4-------')
-        #     src_ip = ipv4_pkt.src
-        #     dst_ip = ipv4_pkt.dst
-        #     src_sw = self._get_host_location(src_ip)
-        #     dst_sw = self._get_host_location(dst_ip)
-        #     if src_sw and dst_sw:# end-to-end connection
-        #         src_dpid = src_sw[0]
-        #         dst_dpid = dst_sw[0]
-        #         src_in_port = src_sw[1]
-        #         dst_out_port = dst_sw[1]
-        #         if src_dpid == dst_dpid and src_dpid == dpid:
-        #             print("src_dpid == dst_dpid:",src_dpid)
-        #             priority = OFP_DEFAULT_PRIORITY
-        #             match = {
-        #                     "dl_type":ether_types.ETH_TYPE_IP,
-        #                     "in_port":in_port,
-        #                     "nw_dst":dst_ip,
-        #                     }
-        #             actions = [{"type":"OUTPUT","port":dst_out_port}]
-        #             if buffer_id != ofproto.OFP_NO_BUFFER:
-        #                 self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id)
-        #             else:
-        #                 self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
-        #                 data = msg.data
-        #                 self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
-        #         else:
-        #             print("src_dpid != dst_dpid:",src_dpid,dst_dpid)
-        #             if dpid == src_dpid:
-        #                 self.traffic = self.get_traffic(src_dpid,dst_dpid)
-        #             if self.traffic: # end-to-end reachable
-        #                 self.install_flow(self.traffic,dst_ip,src_in_port,dst_out_port)
-        #                 data = msg.data
-        #                 out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
-        #                 self.flowSender.packet_out(datapath, in_port, out_port, data)
-        #     return
-
+                if isinstance(icmp_pkt,icmp.icmp):
+                    print("----icmp-------")
+                    if src_dpid == dst_dpid and src_dpid == dpid:
+                        print("src_dpid == dst_dpid")
+                        priority = OFP_DEFAULT_PRIORITY
+                        match = {
+                                "dl_type":ether_types.ETH_TYPE_IP,
+                                "in_port":in_port,
+                                "nw_src":src_ip,
+                                "nw_dst":dst_ip,
+                                }
+                        actions = [{"type":"OUTPUT","port":dst_out_port}]
+                        if buffer_id != ofproto.OFP_NO_BUFFER:
+                            self.flowSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id, 300)
+                        else:
+                            self.flowSender.add_flow_rest_1(dpid, priority, match, actions, 300)
+                            data = msg.data
+                            self.flowSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
+                    else:
+                        print("src_dpid != dst_dpid")
+                        if dpid == src_dpid:
+                            self.traffic = self.get_traffic(src_dpid,dst_dpid)
+                        if self.traffic: # end-to-end reachable
+                            self.install_flow(self.traffic,dst_ip,src_in_port,dst_out_port)
+                            # self.install_flow(self.traffic[::-1],src_ip,dst_out_port,src_in_port)
+                            data = msg.data
+                            out_port = self.path_finder.links_dpid_to_port[(self.traffic[0],self.traffic[1])][0]
+                            self.flowSender.packet_out(datapath, in_port, out_port, data)
+                    return
 
     def register_access_info(self, dpid, ip, port):
         if port in self.path_finder.dpids_to_access_port[dpid]: # {1: [4], 2: [], 3: [], 4: [2, 3], 5: [2, 3], 6: [2, 3]}
@@ -250,9 +197,9 @@ class ReactiveApp(app_manager.RyuApp):
                     "nw_dst":dst_ip,
                     }
             actions = [{"type":"OUTPUT","port":out_port}]
-            self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
+            self.flowSender.add_flow_rest_1(dpid, priority, match, actions, 300)
 
-    def install_flow_2(self, traffic, src_ip, dst_ip, src_in_port, dst_out_port,src_tcp, dst_tcp):
+    def install_flow_tcp(self, traffic, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp):
         n = len(traffic)
         for j in range(n):
             dpid = traffic[j]
@@ -273,9 +220,10 @@ class ReactiveApp(app_manager.RyuApp):
                     "dl_type":ether_types.ETH_TYPE_IP,
                     "nw_proto":6,
                     "in_port":in_port,
+                    "nw_src":src_ip,
                     "nw_dst":dst_ip,
                     "tp_src":src_tcp,
                     "tp_dst":dst_tcp
                     }
             actions = [{"type":"OUTPUT","port":out_port}]
-            self.flowSender.add_flow_rest_1(dpid, priority, match, actions)
+            self.flowSender.add_flow_rest_1(dpid, priority, match, actions, 100)

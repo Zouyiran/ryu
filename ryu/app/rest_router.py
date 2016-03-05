@@ -135,7 +135,7 @@ IDLE_TIMEOUT = 1800  # sec
 DEFAULT_TTL = 64
 
 REST_COMMAND_RESULT = 'command_result'
-REST_RESULT = 'result'
+REST_RESULT = 'result_backup'
 REST_DETAILS = 'details'
 REST_OK = 'success'
 REST_NG = 'failure'

@@ -38,7 +38,7 @@ x1a\\x1b\\x1c\\x1d\\x1e\\x1f !\"#$%&\\'()*+,-./01234567',id=14355,seq=1),type=
 
 Get arp table:
 > {"jsonrpc": "2.0", "id": 1, "method": "get_arp_table", "params" : {}}
-< {"jsonrpc": "2.0", "id": 1, "result": {"1": {"32:1a:51:fb:91:77": 1, "26:8c:
+< {"jsonrpc": "2.0", "id": 1, "result_backup": {"1": {"32:1a:51:fb:91:77": 1, "26:8c:
 15:0c:de:49": 2}}}
 """
 

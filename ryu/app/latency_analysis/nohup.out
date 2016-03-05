@@ -1,0 +1,4 @@
+Qt WARNING: Object::connect: No such signal org::freedesktop::UPower::DeviceAdded(QDBusObjectPath)
+Qt WARNING: Object::connect: No such signal org::freedesktop::UPower::DeviceRemoved(QDBusObjectPath)
+Qt WARNING: Object::connect: No such signal org::freedesktop::UPower::DeviceAdded(QDBusObjectPath)
+Qt WARNING: Object::connect: No such signal org::freedesktop::UPower::DeviceRemoved(QDBusObjectPath)

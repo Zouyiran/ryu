@@ -28,13 +28,13 @@ class _ExceptionBase(exception.RyuException):
 class UnexpectedMultiReply(_ExceptionBase):
     """Two or more replies are received for reply_muiti=False request."""
 
-    message = 'Unexpected Multi replies %(result)s'
+    message = 'Unexpected Multi replies %(result_backup)s'
 
 
 class OFError(_ExceptionBase):
     """OFPErrorMsg is received."""
 
-    message = 'OpenFlow errors %(result)s'
+    message = 'OpenFlow errors %(result_backup)s'
 
 
 class InvalidDatapath(_ExceptionBase):
@@ -43,4 +43,4 @@ class InvalidDatapath(_ExceptionBase):
     This can happen when the bridge disconnects.
     """
 
-    message = 'Datapath Invalid %(result)s'
+    message = 'Datapath Invalid %(result_backup)s'

@@ -545,7 +545,7 @@ def _get_version_from_git_target(git_dir, target_version):
     :param target_version: If None, the last tagged version (or 0 if there are
         no tags yet) is incremented as needed to produce an appropriate target
         version following semver rules. Otherwise target_version is used as a
-        constraint - if semver rules would result in a newer version then an
+        constraint - if semver rules would result_backup in a newer version then an
         exception is raised.
     :return: A semver version object.
     """

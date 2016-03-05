@@ -152,7 +152,7 @@ STATE_GROUP_EXIST_CHK = 20
 
 STATE_DISCONNECTED = 99
 
-# Test result.
+# Test result_backup.
 TEST_OK = 'OK'
 TEST_ERROR = 'ERROR'
 RYU_INTERNAL_ERROR = '- (Ryu internal error.)'
@@ -160,7 +160,7 @@ TEST_FILE_ERROR = '%(file)s : Test file format error (%(detail)s)'
 NO_TEST_FILE = 'Test file (*.json) is not found.'
 INVALID_PATH = '%(path)s : No such file or directory.'
 
-# Test result details.
+# Test result_backup details.
 FAILURE = 0
 ERROR = 1
 TIMEOUT = 2
@@ -500,7 +500,7 @@ class OfTester(app_manager.RyuApp):
                 elif KEY_PACKETS in pkt:
                     self._continuous_packet_send(pkt)
 
-                # Check a result.
+                # Check a result_backup.
                 if KEY_EGRESS in pkt or KEY_PKT_IN in pkt:
                     result = self._test(STATE_FLOW_MATCH_CHK, pkt)
                     if result == TIMEOUT:
@@ -533,7 +533,7 @@ class OfTester(app_manager.RyuApp):
                 hub.kill(tid)
             self.ingress_threads = []
 
-        # Output test result.
+        # Output test result_backup.
         self.logger.info('    %-100s %s', test.description, result[0])
         if 1 < len(result):
             self.logger.info('        %s', result[1])

@@ -101,7 +101,7 @@ class Message(object):
         return (
             self.__validate_arg(self.method, "method", pattern & 0x10000) or
             self.__validate_arg(self.params, "params", pattern & 0x1000) or
-            self.__validate_arg(self.result, "result", pattern & 0x100) or
+            self.__validate_arg(self.result, "result_backup", pattern & 0x100) or
             self.__validate_arg(self.error, "error", pattern & 0x10) or
             self.__validate_arg(self.id, "id", pattern & 0x1))
 
@@ -121,7 +121,7 @@ class Message(object):
             method = None
 
         params = json.pop("params", None)
-        result = json.pop("result", None)
+        result = json.pop("result_backup", None)
         error = json.pop("error", None)
         id_ = json.pop("id", None)
         if len(json):
@@ -153,7 +153,7 @@ class Message(object):
             json["params"] = self.params
 
         if self.result is not None or self.type == Message.T_ERROR:
-            json["result"] = self.result
+            json["result_backup"] = self.result
 
         if self.error is not None or self.type == Message.T_REPLY:
             json["error"] = self.error
@@ -170,7 +170,7 @@ class Message(object):
         if self.params is not None:
             s.append("params=" + ovs.json.to_string(self.params))
         if self.result is not None:
-            s.append("result=" + ovs.json.to_string(self.result))
+            s.append("result_backup=" + ovs.json.to_string(self.result))
         if self.error is not None:
             s.append("error=" + ovs.json.to_string(self.error))
         if self.id is not None:

@@ -10,6 +10,9 @@ import os
 import random
 import time
 
+'''
+linear topology with 2 hosts: h1 and h2
+'''
 
 class CustomTopo(Topo):
 
@@ -61,21 +64,21 @@ def main(n_switches, count_ping):
                        port=CONTROLLER_PORT)
 
     net.start()
-    time.sleep(10)
-
-    hosts = [net.getNodeByName('h1'),net.getNodeByName('h2')]
-    rtt_list = list()
-    for count in range(1,count_ping+1):
-        all_res = net.pingFull(hosts)
-        res = all_res[0] # h1 -> h2 rtt
-        src, dest, ping_outputs = res
-        sent, received, rttmin, rttavg, rttmax, rttdev = ping_outputs
-        if sent == received:
-            rtt_latency = rttavg
-        else:
-            rtt_latency = 0
-        rtt_list.append(rtt_latency)
-    print(rtt_list)
+    # time.sleep(10)
+    #
+    # hosts = [net.getNodeByName('h1'),net.getNodeByName('h2')]
+    # rtt_list = list()
+    # for count in range(1,count_ping+1):
+    #     all_res = net.pingFull(hosts)
+    #     res = all_res[0] # h1 -> h2 rtt
+    #     src, dest, ping_outputs = res
+    #     sent, received, rttmin, rttavg, rttmax, rttdev = ping_outputs
+    #     if sent == received:
+    #         rtt_latency = rttavg
+    #     else:
+    #         rtt_latency = 0
+    #     rtt_list.append(rtt_latency)
+    # print(rtt_list)
 
     CLI(net)
     net.stop()
@@ -86,4 +89,4 @@ if __name__ == '__main__':
     if os.getuid() != 0:
         logging.debug("You are NOT root")
     else:
-        main(10,10)
+        main(2,10)

@@ -635,7 +635,7 @@ class Firewall(object):
         cmd = self.dp.ofproto.OFPFC_ADD
         self.ofctl.mod_flow_entry(self.dp, flow, cmd)
 
-        msg = {'result': 'success',
+        msg = {'result_backup': 'success',
                'details': 'firewall stopped.'}
         return REST_COMMAND_RESULT, msg
 
@@ -651,7 +651,7 @@ class Firewall(object):
         cmd = self.dp.ofproto.OFPFC_DELETE_STRICT
         self.ofctl.mod_flow_entry(self.dp, flow, cmd)
 
-        msg = {'result': 'success',
+        msg = {'result_backup': 'success',
                'details': 'firewall running.'}
         return REST_COMMAND_RESULT, msg
 
@@ -713,7 +713,7 @@ class Firewall(object):
                                     match={}, actions=actions)
             self.ofctl.mod_flow_entry(self.dp, flow, cmd)
 
-        msg = {'result': 'success',
+        msg = {'result_backup': 'success',
                'details': details}
         return REST_COMMAND_RESULT, msg
 
@@ -765,7 +765,7 @@ class Firewall(object):
             raise ValueError('Invalid rule parameter.')
 
         rule_id = Firewall._cookie_to_ruleid(cookie)
-        msg = {'result': 'success',
+        msg = {'result_backup': 'success',
                'details': 'Rule added. : rule_id=%d' % rule_id}
 
         if vlan_id != VLANID_NONE:
@@ -839,7 +839,7 @@ class Firewall(object):
             msg_details = 'Rule is not exist.'
             if rule_id != REST_ALL:
                 msg_details += ' : ruleID=%d' % rule_id
-            msg = {'result': 'failure',
+            msg = {'result_backup': 'failure',
                    'details': msg_details}
         else:
             cmd = self.dp.ofproto.OFPFC_DELETE_STRICT
@@ -858,7 +858,7 @@ class Firewall(object):
 
             msg = []
             for vid, rule_ids in delete_ids.items():
-                del_msg = {'result': 'success',
+                del_msg = {'result_backup': 'success',
                            'details': 'Rule deleted. : ruleID=%s' % rule_ids}
                 if vid != VLANID_NONE:
                     del_msg.setdefault(REST_VLANID, vid)

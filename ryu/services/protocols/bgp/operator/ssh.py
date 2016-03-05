@@ -317,7 +317,7 @@ Hello, this is Ryu BGP speaker (version %s).
 
     def _execute_cmd(self, cmds):
         result, cmd = self.root(cmds)
-        LOG.debug("result: %s", result)
+        LOG.debug("result_backup: %s", result)
         self.prompted = False
         self._startnewline()
         output = result.value.replace('\n', '\n\r').rstrip()

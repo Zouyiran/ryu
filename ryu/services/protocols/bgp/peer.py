@@ -2022,7 +2022,7 @@ class Peer(Source, Sink, NeighborConfListener, Activity):
             for m in maps:
                 cause, result = m.evaluate(path)
                 LOG.debug(
-                    "local_pref evaluation result:%s, cause:%s",
+                    "local_pref evaluation result_backup:%s, cause:%s",
                     result, cause)
                 if result:
                     result_attr = m.get_attribute()

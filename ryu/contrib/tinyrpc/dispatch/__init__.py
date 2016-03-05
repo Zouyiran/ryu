@@ -69,7 +69,7 @@ class RPCDispatcher(object):
         """Fully handle request.
 
         The dispatch method determines which method to call, calls it and
-        returns a response containing a result.
+        returns a response containing a result_backup.
 
         No exceptions will be thrown, rather, every exception will be turned
         into a response using :py:func:`~tinyrpc.RPCRequest.error_respond`.
@@ -116,7 +116,7 @@ class RPCDispatcher(object):
                 # an error occured within the method, return it
                 return request.error_respond(e)
 
-            # respond with result
+            # respond with result_backup
             return request.respond(result)
         except Exception as e:
             # unexpected error, do not let client know what happened

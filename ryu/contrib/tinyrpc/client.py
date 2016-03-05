@@ -29,7 +29,7 @@ class RPCClient(object):
         return response
 
     def call(self, method, args, kwargs, one_way=False):
-        """Calls the requested method and returns the result.
+        """Calls the requested method and returns the result_backup.
 
         If an error occured, an :py:class:`~tinyrpc.exc.RPCError` instance
         is raised.

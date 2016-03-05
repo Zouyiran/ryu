@@ -58,7 +58,7 @@ def send_msg(app, msg, reply_cls=None, reply_multi=False):
         import ryu.app.ofctl.api as api
 
         msg = parser.OFPPortDescStatsRequest(datapath=datapath)
-        result = api.send_msg(self, msg,
+        result_backup = api.send_msg(self, msg,
                                     reply_cls=parser.OFPPortDescStatsReply,
                                     reply_multi=True)
     """

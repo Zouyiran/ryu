@@ -57,7 +57,7 @@ class Internable(object):
     @classmethod
     def _internable_init(kls):
         # Objects to be interned are held as keys in a dictionary that
-        # only holds weak references to keys. As a result, when the
+        # only holds weak references to keys. As a result_backup, when the
         # last reference to an interned object goes away, the object
         # will be removed from the dictionary.
         kls._internable_dict = weakref.WeakKeyDictionary()

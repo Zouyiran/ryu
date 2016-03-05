@@ -58,7 +58,7 @@ class JSONRPCSuccessResponse(RPCResponse):
         return {
             'jsonrpc': JSONRPCProtocol.JSON_RPC_VERSION,
             'id': self.unique_id,
-            'result': self.result,
+            'result_backup': self.result,
         }
 
     def serialize(self):
@@ -174,7 +174,7 @@ class JSONRPCProtocol(RPCBatchProtocol):
     Currently, only version 2.0 is supported."""
 
     JSON_RPC_VERSION = "2.0"
-    _ALLOWED_REPLY_KEYS = sorted(['id', 'jsonrpc', 'error', 'result'])
+    _ALLOWED_REPLY_KEYS = sorted(['id', 'jsonrpc', 'error', 'result_backup'])
     _ALLOWED_REQUEST_KEYS = sorted(['id', 'jsonrpc', 'method', 'params'])
 
     def __init__(self, *args, **kwargs):
@@ -223,9 +223,9 @@ class JSONRPCProtocol(RPCBatchProtocol):
         if not 'id' in rep:
             raise InvalidReplyError('Missing id in response')
 
-        if ('error' in rep) == ('result' in rep):
+        if ('error' in rep) == ('result_backup' in rep):
             raise InvalidReplyError(
-                'Reply must contain exactly one of result and error.'
+                'Reply must contain exactly one of result_backup and error.'
             )
 
         if 'error' in rep:
@@ -235,7 +235,7 @@ class JSONRPCProtocol(RPCBatchProtocol):
             response._jsonrpc_error_code = error['code']
         else:
             response = JSONRPCSuccessResponse()
-            response.result = rep.get('result', None)
+            response.result = rep.get('result_backup', None)
 
         response.unique_id = rep['id']
 

@@ -34,7 +34,7 @@ class LowLatency(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         '''
-        calculate traffic table of each hosts pair, which need to use the result of the path table
+        calculate traffic table of each hosts pair, which need to use the result_backup of the path table
         :param ev:
         :return:
         '''

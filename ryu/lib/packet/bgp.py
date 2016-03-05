@@ -558,7 +558,7 @@ class CollisionResolution(BgpExc):
     """Error to indicate Connection Collision Resolution.
 
     RFC says: If a BGP speaker decides to send a NOTIFICATION message with the
-    Error Code Cease as a result of the collision resolution procedure (as
+    Error Code Cease as a result_backup of the collision resolution procedure (as
     described in [BGP-4]), then the subcode SHOULD be set to "Connection
     Collision Resolution".
     """

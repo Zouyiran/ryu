@@ -961,7 +961,7 @@ class VSCtl(object):
             command._run(ctx, command)
             if ctx.try_again:
                 return False
-        LOG.debug('result:\n%s', [command.result for command in commands])
+        LOG.debug('result_backup:\n%s', [command.result for command in commands])
         ctx.done()
 
         # TODO:XXX check if created symbols are really created, referenced.

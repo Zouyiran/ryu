@@ -68,7 +68,7 @@ class PathFinder(app_manager.RyuApp):
         self.LABEL_BE_USED = set()
         self.LABEL_RECYCLE = set()
 
-        self.SLEEP_PERIOD = 4 #seconds
+        self.SLEEP_PERIOD = 10 #seconds
 
         self.topo_discover_thread = hub.spawn(self.topo_discover)
 
@@ -81,6 +81,7 @@ class PathFinder(app_manager.RyuApp):
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
+        # add miss entry
         self.flowSender.add_flow(datapath, 0, match, actions)
 
     @set_ev_cls(ofp_event.EventOFPStateChange,[MAIN_DISPATCHER, DEAD_DISPATCHER])
@@ -118,6 +119,17 @@ class PathFinder(app_manager.RyuApp):
                     self._show_links_dpid_to_port()
                     self._show_matrix()
                     self._show_path_table()
+    #unused
+    def _install_arp_entry(self):
+        for dpid in self.dpids_to_access_port:
+            if len(self.dpids_to_access_port[dpid]) == 0:# edge switch
+                datapath = self.dpid_to_dp[dpid]
+                parser = datapath.ofproto_parser
+                ofproto = datapath.ofproto
+                # add arp flood entry
+                match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_ARP, eth_dst='00:00:00:00:00:00')
+                actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+                self.flowSender.add_flow(datapath, 0, match, actions)
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
@@ -229,7 +241,7 @@ class PathFinder(app_manager.RyuApp):
     # delete old mpls_path, add new mpls_path
     def pre_setup_flows(self,pre_path_table, path_table):
         print("...................pre-install flow..................")
-        if len(pre_path_table) == 0 and len(path_table) != 0: # inital
+        if len(pre_path_table) == 0 and len(path_table) != 0: # initial
             print("...................initial flows..................")
             self.LABEL = 0
             self.LABEL_BE_USED.clear()

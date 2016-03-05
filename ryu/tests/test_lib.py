@@ -193,7 +193,7 @@ class RyuTestResult(result.TextTestResult):
                 if isfail:
                     test.passwd = False
                 storage.append((test, exc_info))
-                # Might get patched into a streamless result
+                # Might get patched into a streamless result_backup
                 if stream is not None:
                     if self.showAll:
                         message = [label]

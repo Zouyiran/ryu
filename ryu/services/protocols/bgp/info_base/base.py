@@ -315,7 +315,7 @@ class Destination(object):
         self._sent_routes = {}
 
         # This is an (optional) list of paths that were created as a
-        # result of exporting this route to other tables.
+        # result_backup of exporting this route to other tables.
         # self.exported_paths = None
 
         # Automatically generated
@@ -860,10 +860,10 @@ class Filter(object):
     def evaluate(self, path):
         """ This method evaluates the path.
 
-        Returns this object's policy and the result of matching.
+        Returns this object's policy and the result_backup of matching.
         If the specified prefix matches this object's prefix and
         ge and le condition,
-        this method returns True as the matching result.
+        this method returns True as the matching result_backup.
 
         ``path`` specifies the path. prefix must be string.
 
@@ -963,10 +963,10 @@ class PrefixFilter(Filter):
     def evaluate(self, path):
         """ This method evaluates the prefix.
 
-        Returns this object's policy and the result of matching.
+        Returns this object's policy and the result_backup of matching.
         If the specified prefix matches this object's prefix and
         ge and le condition,
-        this method returns True as the matching result.
+        this method returns True as the matching result_backup.
 
         ``path`` specifies the path that has prefix.
 
@@ -1081,10 +1081,10 @@ class ASPathFilter(Filter):
     def evaluate(self, path):
         """ This method evaluates as_path list.
 
-        Returns this object's policy and the result of matching.
+        Returns this object's policy and the result_backup of matching.
         If the specified AS number matches this object's AS number
         according to the policy,
-        this method returns True as the matching result.
+        this method returns True as the matching result_backup.
 
         ``path`` specifies the path.
 
@@ -1180,8 +1180,8 @@ class AttributeMap(object):
     def evaluate(self, path):
         """ This method evaluates attributes of the path.
 
-        Returns the cause and result of matching.
-        Both cause and result are returned from filters
+        Returns the cause and result_backup of matching.
+        Both cause and result_backup are returned from filters
         that this object contains.
 
         ``path`` specifies the path.

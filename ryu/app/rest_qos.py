@@ -649,10 +649,10 @@ class QoS(object):
     @rest_command
     def get_queue(self, rest, vlan_id):
         if len(self.queue_list):
-            msg = {'result': 'success',
+            msg = {'result_backup': 'success',
                    'details': self.queue_list}
         else:
-            msg = {'result': 'failure',
+            msg = {'result_backup': 'failure',
                    'details': 'Queue is not exists.'}
 
         return REST_COMMAND_RESULT, msg
@@ -660,7 +660,7 @@ class QoS(object):
     @rest_command
     def set_queue(self, rest, vlan_id):
         if self.ovs_bridge is None:
-            msg = {'result': 'failure',
+            msg = {'result_backup': 'failure',
                    'details': 'ovs_bridge is not exists'}
             return REST_COMMAND_RESULT, msg
 
@@ -701,7 +701,7 @@ class QoS(object):
             except Exception as msg:
                 raise ValueError(msg)
 
-        msg = {'result': 'success',
+        msg = {'result_backup': 'success',
                'details': self.queue_list}
 
         return REST_COMMAND_RESULT, msg
@@ -775,7 +775,7 @@ class QoS(object):
             raise ValueError('Invalid rule parameter.')
 
         qos_id = QoS._cookie_to_qosid(cookie)
-        msg = {'result': 'success',
+        msg = {'result_backup': 'success',
                'details': 'QoS added. : qos_id=%d' % qos_id}
 
         if vlan_id != VLANID_NONE:
@@ -846,7 +846,7 @@ class QoS(object):
             msg_details = 'QoS rule is not exist.'
             if qos_id != REST_ALL:
                 msg_details += ' : QoS ID=%d' % qos_id
-            msg = {'result': 'failure',
+            msg = {'result_backup': 'failure',
                    'details': msg_details}
         else:
             cmd = self.dp.ofproto.OFPFC_DELETE_STRICT
@@ -865,7 +865,7 @@ class QoS(object):
 
             msg = []
             for vid, rule_ids in delete_ids.items():
-                del_msg = {'result': 'success',
+                del_msg = {'result_backup': 'success',
                            'details': ' deleted. : QoS ID=%s' % rule_ids}
                 if vid != VLANID_NONE:
                     del_msg.setdefault(REST_VLANID, vid)
@@ -890,7 +890,7 @@ class QoS(object):
         except:
             raise ValueError('Invalid meter parameter.')
 
-        msg = {'result': 'success',
+        msg = {'result_backup': 'success',
                'details': 'Meter added. : Meter ID=%s' %
                rest[REST_METER_ID]}
         return msg
@@ -916,7 +916,7 @@ class QoS(object):
         except:
             raise ValueError('Invalid meter parameter.')
 
-        msg = {'result': 'success',
+        msg = {'result_backup': 'success',
                'details': 'Meter deleted. : Meter ID=%s' %
                rest[REST_METER_ID]}
         return REST_COMMAND_RESULT, msg

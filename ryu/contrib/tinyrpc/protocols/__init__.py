@@ -40,7 +40,7 @@ class RPCRequest(object):
     def respond(self, result):
         """Create a response.
 
-        Call this to return the result of a successful method invocation.
+        Call this to return the result_backup of a successful method invocation.
 
         This creates and returns an instance of a protocol-specific subclass of
         :py:class:`~tinyrpc.RPCResponse`.
@@ -90,7 +90,7 @@ class RPCResponse(object):
 
     Base class for all deriving responses.
 
-    Has an attribute ``result`` containing the result of the RPC call, unless
+    Has an attribute ``result_backup`` containing the result_backup of the RPC call, unless
     an error occured, in which case an attribute ``error`` will contain the
     error message."""
 
