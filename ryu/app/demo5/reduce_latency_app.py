@@ -15,7 +15,7 @@ from flow_sender import FlowSender
 from pro_path_finder import PathFinder
 
 
-class SemiActiveApp(app_manager.RyuApp):
+class ProactiveApp(app_manager.RyuApp):
     '''
     on the Network Layer
     semi_active app
