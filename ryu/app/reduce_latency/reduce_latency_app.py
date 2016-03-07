@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import random
+import copy
 
 from ryu.base import app_manager
 from ryu.lib import hub
@@ -25,17 +26,52 @@ class ReduceLatencyApp(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
         'path_finder': PathFinder,
+        'flow_collector':FlowCollector
     }
 
     def __init__(self, *args, **kwargs):
         super(ReduceLatencyApp, self).__init__(*args, **kwargs)
         self.path_finder = kwargs['path_finder']
         self.flow_collector = kwargs['flow_collector']
+
         self.flowSender = FlowSender()
 
         self.dpid_ip_to_port = dict()
         self.access_table = dict()
         self.traffic = None
+
+        self.DISCOVER_PERIOD = 3
+        self.COLLECTOR_PERIOD = 5
+
+        self.network_discover_thread = hub.spawn(self._discover)
+        self.flow_collector_thread = hub.spawn(self._collector)
+
+
+    def _discover(self):
+        while True:
+            hub.sleep(self.DISCOVER_PERIOD)
+            self.path_finder.self.pre_adjacency_matrix = copy.deepcopy(self.path_finder.self.adjacency_matrix)
+            self.path_finder.self.update_topology()
+            if self.path_finder.self.pre_adjacency_matrix != self.path_finder.self.adjacency_matrix:
+                self.logger.info('***********network_aware thread: adjacency_matrix CHANGED***********')
+                self.pre_path_table = copy.deepcopy(self.pre_path_table)
+                self.path_finder.self.path_table = self.path_finder.self.get_path_table(
+                                                    self.path_finder.self.adjacency_matrix,
+                                                    self.path_finder.self.dpids_to_access_port)
+                if self.path_finder.self.pre_path_table != self.path_finder.self.path_table:
+                    self.logger.info('***********network_aware thread: path_table CHANGED***********')
+                    self.path_finder.self.pre_setup_flows(self.path_finder.self.pre_path_table,
+                                                          self.path_finder.self.path_table)
+    def _collector(self):
+        while True:
+            hub.sleep(self.COLLECTOR_PERIOD)
+            access_dpids = self.path_finder.access_dpids
+            if len(access_dpids) != 0:
+                print("len(access_dpids):",len(access_dpids))
+                for dpid in access_dpids:
+                    self.path_finder.dpid_to_flow.setdefault(dpid, {})
+                    stats_flow = self.path_finder.request_stats_flow(dpid)[str(dpid)]
+                    self.path_finder.dpid_to_flow[dpid] = self.path_finder.parse_stats_flow(stats_flow)
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)

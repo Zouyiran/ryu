@@ -19,43 +19,26 @@ from pro_path_finder import PathFinder
 class FlowCollector(app_manager.RyuApp):
 
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    _CONTEXTS = {
-        'path_finder': PathFinder,
-    }
 
     def __init__(self, *args, **kwargs):
         super(FlowCollector, self).__init__(*args, **kwargs)
         self.flowSender = FlowSender()
-        self.path_finder = kwargs['path_finder']
 
         self.dpids = []
         self.dpid_to_flow = dict() # {dpid:[Flow,Flow,Flow,...],dpid:[Flow,Flow,Flow,...],...}
 
         self.COLLECT_PERIOD = 5
 
-        hub.spawn(self._collector)
-
-
-    def _collector(self):
-        while True:
-            hub.sleep(self.COLLECT_PERIOD)
-            access_dpids = self.path_finder.access_dpids
-            if len(access_dpids) != 0:
-                for dpid in access_dpids:
-                    self.dpid_to_flow.setdefault(dpid, {})
-                    stats_flow = self._request_stats_flow(dpid)[str(dpid)]
-                    self.dpid_to_flow[dpid] = self._parse_stats_flow(stats_flow)
-
     # not used
-    def _request_stats_switches(self):
+    def request_stats_switches(self):
         res = self.flowSender.get_stats_switches() # Response
         return res.json() #list
 
-    def _request_stats_flow(self, dpid):
+    def request_stats_flow(self, dpid):
         res = self.flowSender.get_stats_flow(dpid)
         return res.json() # dict
 
-    def _parse_stats_flow(self,stats_flow):
+    def parse_stats_flow(self,stats_flow):
         flow_list = list()
         for each_flow in stats_flow:
             if each_flow["actions"] == ["OUTPUT:CONTROLLER"]:

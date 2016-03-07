@@ -101,12 +101,12 @@ class PathFinder(app_manager.RyuApp):
         while True:
             hub.sleep(self.SLEEP_PERIOD)
             self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
-            self._update_topology()
+            self.update_topology()
 
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********network_aware thread: adjacency_matrix CHANGED***********')
                 self.pre_path_table = copy.deepcopy(self.pre_path_table)
-                self.path_table = self._get_path_table(self.adjacency_matrix,self.dpids_to_access_port)
+                self.path_table = self.get_path_table(self.adjacency_matrix,self.dpids_to_access_port)
 
                 if self.pre_path_table != self.path_table:
                     self.logger.info('***********network_aware thread: path_table CHANGED***********')
@@ -132,7 +132,7 @@ class PathFinder(app_manager.RyuApp):
                 actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
                 self.flowSender.add_flow(datapath, 0, match, actions)
 
-    def _update_topology(self):
+    def update_topology(self):
         switch_list = get_all_switch(self)
         if len(switch_list) != 0:
             self.dpids_port_to_mac = self._get_dpids_port_to_mac(switch_list)
@@ -213,7 +213,7 @@ class PathFinder(app_manager.RyuApp):
                     graph[src][dst] = 1
         return graph
 
-    def _get_path_table(self, matrix, dpids_to_access_port): # just get shortest path between edge_switches
+    def get_path_table(self, matrix, dpids_to_access_port): # just get shortest path between edge_switches
         if matrix:
             dpids = matrix.keys()
             g = nx.DiGraph()

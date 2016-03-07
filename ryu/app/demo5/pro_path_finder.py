@@ -71,7 +71,7 @@ class PathFinder(app_manager.RyuApp):
 
         self.SLEEP_PERIOD = 10 #seconds
 
-        hub.spawn(self._discover)
+        self.topo_discover_thread = hub.spawn(self._discover)
 
     # install table-miss flow entry for each switch
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -113,13 +113,13 @@ class PathFinder(app_manager.RyuApp):
                     # delete old mpls_path, add new mpls_path
                     self.pre_setup_flows(self.pre_path_table,self.path_table)
 
-                    # #print for debug
-                    # self._show_dpids()
-                    # self._show_links()
-                    # self._show_dpid_port_to_mac()
-                    # self._show_links_dpid_to_port()
-                    # self._show_matrix()
-                    # self._show_path_table()
+                    #print for debug
+                    self._show_dpids()
+                    self._show_links()
+                    self._show_dpid_port_to_mac()
+                    self._show_links_dpid_to_port()
+                    self._show_matrix()
+                    self._show_path_table()
     #unused
     def _install_arp_entry(self):
         for dpid in self.dpids_to_access_port:
