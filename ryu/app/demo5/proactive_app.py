@@ -23,12 +23,12 @@ class SemiActiveApp(app_manager.RyuApp):
     '''
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
-        'PathFinder': PathFinder,
+        'path_finder': PathFinder,
     }
 
     def __init__(self, *args, **kwargs):
         super(SemiActiveApp, self).__init__(*args, **kwargs)
-        self.path_finder = kwargs['PathFinder']
+        self.path_finder = kwargs['path_finder']
         self.flowSender = FlowSender()
 
         self.dpid_ip_to_port = dict()
