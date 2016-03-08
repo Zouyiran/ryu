@@ -5,10 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 
-from sklearn.svm import SVC
-from sklearn.model_selection import KFold
+from sklearn import svm, cross_validation, datasets
 
-# from sklearn.model_selection import
 '''
 class Flow(object):
     def __init__(self):
@@ -62,54 +60,38 @@ class Classifier(object):
                 target.append(0) # not alive
         return target # list
 
-    def training(self, sample, target):
-        C = 1 #[1e-2, 1, 1e2]
-        gamma = 1e-1#[1e-1, 1, 1e1]
-        clf = SVC(C=C, gamma=gamma)
-        clf.fit(sample, target)
-        return clf
+    def select_module(self, sample, target, kernel, scoring=None, k=10):
+        scores = list()
+        scores_std = list()
+        # sample_num = len(sample)
+        # kflod = cross_validation.KFold(sample_num, n_folds=k)
+        if kernel == "linear":
+            svc = svm.SVC(kernel="linear")
+            c_list = [1e-1, 1, 1e1]
+            for c in c_list:
+                svc.C = c
+                this_scores = cross_validation.cross_val_score(svc, sample, target, scoring=scoring, cv=k)
+                scores.append(np.mean(this_scores))
+                scores_std.append(np.std(this_scores))
+        if kernel == "rbf":
+            c_list = [1e-1, 1, 1e1]
+            gamma_list = [1e-1, 1, 1e1]
+            for c in c_list:
+                for gamma in gamma_list:
+                    svc = svm.SVC(kernel="rbf", C=c, gamma=gamma)
+                    this_scores = cross_validation.cross_val_score(svc, sample, target, scoring=scoring, cv=k)
+                    scores.append(np.mean(this_scores))
+                    scores_std.append(np.std(this_scores))
+        return scores, scores_std
 
+if __name__ == "__main__":
+    classify = Classifier()
+    iris = datasets.load_iris()
+    sample = iris.data
+    target = iris.target
+    scores, scores_std = classify.select_module(sample,target,'rbf',None, 10)
+    print "scores mean:"
+    print scores
+    print "scores std:"
+    print scores_std
 
-    def cross_verify(self, sample, target, k=10):
-        module_list = list()
-        kFlod = KFold(n_folds=10)
-        for train_index, test_index in kFlod.split(sample):
-            train_sample = list()
-            train_target = list()
-            test_sample = list()
-            test_target = list()
-            for i in train_index:
-                train_sample.append(sample[i])
-                train_target.append(target[i])
-            module = self.training(np.array(train_sample),np.array(train_target))
-            module_list.append(module)
-            for i in test_index:
-                test_sample.append(sample[i])
-                test_target.append(target[i])
-            test_result = module.predict(np.array(test_sample))
-        # verify_num = len(sample)/k
-        # for i in range(k):
-        #     if i == 0:
-        #         verify_sample = sample[:verify_num]
-        #         verify_target = target[:verify_num]
-        #         sample_sample = sample[verify_num:]
-        #         sample_target = target[verify_num:]
-        #     elif i == k-1:
-        #         verify_sample = sample[i*verify_num:]
-        #         verify_target = target[i*verify_num:]
-        #         sample_sample = sample[:i*verify_num]
-        #         sample_target = target[:i*verify_num]
-        #     else:
-        #         verify_sample = sample[i*verify_num:(i+1)*verify_num]
-        #         verify_target = target[i*verify_num:(i+1)*verify_num]
-        #         sample_sample = sample[:i*verify_num]+sample[(i+1)*verify_num:]
-        #         sample_target = target[:i*verify_num]+target[(i+1)*verify_num:]
-        #     module = self.training(sample_sample,sample_target)
-        #     module_target = module.predict(verify_sample)
-
-
-
-
-    def get_module(self):
-        #grid search
-        pass
