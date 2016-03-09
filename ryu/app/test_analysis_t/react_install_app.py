@@ -278,19 +278,19 @@ class ProactiveApp(app_manager.RyuApp):
         if isinstance(ar, arp.arp):
             print("-----arp packet------")
             print("dpid:",datapath.id)
-            print(pkt)
-            for each in self.mac_to_port:
-                print "dpid:",each
-                for a in self.mac_to_port[each]:
-                    print "mac:",a,"->","port:",self.mac_to_port[each][a]
+            # print(pkt)
+            # for each in self.mac_to_port:
+            #     print "dpid:",each
+            #     for a in self.mac_to_port[each]:
+            #         print "mac:",a,"->","port:",self.mac_to_port[each][a]
         if isinstance(ic, icmp.icmp):
             print("-----icmp packet------")
             print("dpid:",datapath.id)
-            print(pkt)
-            for each in self.mac_to_port:
-                print "dpid:",each
-                for a in self.mac_to_port[each]:
-                    print "mac:",a,"->","port:",self.mac_to_port[each][a]
+            # print(pkt)
+            # for each in self.mac_to_port:
+            #     print "dpid:",each
+            #     for a in self.mac_to_port[each]:
+            #         print "mac:",a,"->","port:",self.mac_to_port[each][a]
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # ignore lldp packet

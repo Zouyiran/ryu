@@ -281,6 +281,7 @@ class ProactiveApp(app_manager.RyuApp):
         #
         if isinstance(ar, arp.arp):
             print("-----arp packet------")
+            print("dpid:",datapath.id)
         #     print("dpid:",datapath.id)
         #     print(pkt)
         #     for each in self.mac_to_port:
