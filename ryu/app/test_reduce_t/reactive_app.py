@@ -13,7 +13,7 @@ from ryu.lib.packet import packet, ethernet, arp, ipv4, ipv6, icmp, ether_types,
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 
-from flow_sender import FlowSender
+from command_sender import CommandSender
 import  re_path_finder
 
 
@@ -37,7 +37,7 @@ class ReactiveApp(app_manager.RyuApp):
         super(ReactiveApp, self).__init__(*args, **kwargs)
         self.path_finder = kwargs['PathFinder']
         # self.stp = kwargs['stplib']
-        self.flowSender = FlowSender()
+        self.flowSender = CommandSender()
 
         self.dpid_ip_to_port = dict()
         self.access_table = dict()
@@ -157,6 +157,7 @@ class ReactiveApp(app_manager.RyuApp):
                     return
 
     def register_access_info(self, dpid, ip, port):
+        print(self.path_finder.dpids_to_access_port)
         if port in self.path_finder.dpids_to_access_port[dpid]: # {1: [4], 2: [], 3: [], 4: [2, 3], 5: [2, 3], 6: [2, 3]}
             self.access_table[(dpid,port)] = ip
 

@@ -17,7 +17,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 from ryu.topology.api import get_all_switch, get_all_link, get_all_host
 
-from flow_sender import FlowSender
+from command_sender import CommandSender
 
 class PathFinder(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -25,7 +25,7 @@ class PathFinder(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(PathFinder, self).__init__(*args, **kwargs)
         self.name = 'PathFinder'
-        self.flowDispatcher = FlowSender()
+        self.flowDispatcher = CommandSender()
 
         # {dpid:{port:mac,port:mac,...},dpid:{port:mac,port:mac,...},...} only switches'mac
         self.dpids_port_to_mac = dict()
@@ -84,7 +84,6 @@ class PathFinder(app_manager.RyuApp):
             hub.sleep(self.SLEEP_PERIOD)
             self.pre_adjacency_matrix = copy.deepcopy(self.adjacency_matrix)
             self._update_topology()
-
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********network_aware thread: adjacency_matrix CHANGED***********')
                 self.pre_path_table = copy.deepcopy(self.pre_path_table)

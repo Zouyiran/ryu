@@ -10,11 +10,12 @@ plot for:pre_install_app(no Extra Latency) and react_install_app(contain Extra L
 '''
 
 x = [2,3,4,5,6,7,8,9]
-# contain arp
+
+# ---contain arp---
 # simple =      [22.4, 30.8, 39.4, 46.2, 52.1, 62.0, 71.2, 79.5]
 # pre_install = [17.0, 22.7, 30.1, 35.6, 40.3, 46.2, 52.4, 57.1]
 
-#not contain arp
+# ---not contain arp---
 # simple = [6.16+5.4, 8.18+8.1, 10.0+9.3, 12.2+10.4, 14.3+11.8, 16.3+15.8, 18.3+18.8, 20.3+22.4]
 simple = [11.56, 16.28, 19.3, 22.6, 26.1, 32.1, 37.1, 42.7]
 pre_install = [6.16, 8.18, 10.2, 12.2, 14.3, 16.3, 18.3, 20.3]

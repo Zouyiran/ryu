@@ -22,9 +22,9 @@ class Flow(object):
 '''
 
 
-class Classifier(object):
+class FlowClassifier(object):
     def __init__(self):
-        super(Classifier, self).__init__()
+        super(FlowClassifier, self).__init__()
         self.id_to_sample = dict()
         self.data = None
         self.target = None
@@ -85,7 +85,7 @@ class Classifier(object):
         return scores, scores_std
 
 if __name__ == "__main__":
-    classify = Classifier()
+    classify = FlowClassifier()
     iris = datasets.load_iris()
     sample = iris.data
     target = iris.target
