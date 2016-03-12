@@ -80,7 +80,7 @@ class ProactiveApp(app_manager.RyuApp):
                                           ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None, idle_timeout=0):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
@@ -89,10 +89,10 @@ class ProactiveApp(app_manager.RyuApp):
         if buffer_id:
             mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
                                     priority=priority, match=match,
-                                    instructions=inst)
+                                    instructions=inst,idle_timeout=idle_timeout)
         else:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                    match=match, instructions=inst)
+                                    match=match, instructions=inst,idle_timeout=idle_timeout)
         datapath.send_msg(mod)
 
     def pre_install(self):
@@ -231,7 +231,7 @@ class ProactiveApp(app_manager.RyuApp):
             priority = OFP_DEFAULT_PRIORITY
             match = parser.OFPMatch(in_port=host1_port,eth_dst=host2) # , eth_dst=host2
             actions = [parser.OFPActionOutput(host2_port)]
-            self.add_flow(datapath, priority, match, actions)
+            self.add_flow(datapath, priority, match, actions,idle_timeout=5)
         else:
             traffic = self.path_table[(host1_dpid,host2_dpid)][0]
             length = len(traffic)
@@ -243,18 +243,18 @@ class ProactiveApp(app_manager.RyuApp):
                     match = parser.OFPMatch(in_port=host1_port,eth_dst=host2) # , eth_dst=host2
                     out_port = self.links_dpid_to_port[(traffic[i],traffic[i+1])][0]
                     actions = [parser.OFPActionOutput(out_port)]
-                    self.add_flow(datapath, priority, match, actions)
+                    self.add_flow(datapath, priority, match, actions, idle_timeout=5)
                 elif i == length -1:
                     in_port = self.links_dpid_to_port[(traffic[i-1],traffic[i])][1]
                     match = parser.OFPMatch(in_port=in_port,eth_dst=host2) # , eth_dst=host2
                     actions = [parser.OFPActionOutput(host2_port)]
-                    self.add_flow(datapath, priority, match, actions)
+                    self.add_flow(datapath, priority, match, actions, idle_timeout=5)
                 else:
                     in_port = self.links_dpid_to_port[(traffic[i-1],traffic[i])][1]
                     out_port = self.links_dpid_to_port[(traffic[i],traffic[i+1])][0]
                     match = parser.OFPMatch(in_port=in_port,eth_dst=host2) # , eth_dst=host2
                     actions = [parser.OFPActionOutput(out_port)]
-                    self.add_flow(datapath, priority, match, actions)
+                    self.add_flow(datapath, priority, match, actions, idle_timeout=5)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):

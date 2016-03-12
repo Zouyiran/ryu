@@ -22,7 +22,7 @@ pre_install = [ 57.1, 68.6, 87.6, 100, 110, 122, 135]
 # pre_install = [6.16, 8.18, 10.2, 12.2, 14.3, 16.3, 18.3, 20.3]
 
 plt.plot(x,simple,"k-^",label="reactive")
-plt.plot(x,pre_install,"k-*",label="pre-install")
+plt.plot(x,pre_install,"k-",label="pre-install")
 plt.axis([1,10,0,200])
 plt.xticks([3,4,5,6,7,8,9])
 plt.xlabel("the number of switch nodes", fontsize=16)
