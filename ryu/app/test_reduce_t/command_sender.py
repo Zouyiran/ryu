@@ -5,8 +5,17 @@ import requests
 
 class CommandSender(object):
 
+    # singletone
+    _instance = None
+
     def __init__(self):
         self.IP = "http://localhost:8080"
+
+    @staticmethod
+    def get_instance():
+        if not CommandSender._instance:
+            CommandSender._instance = CommandSender()
+        return CommandSender._instance
 
     def add_flow(self, datapath, priority, match, actions,  buffer_id=None, idle_timeout=0, hard_timeout=0):
         '''

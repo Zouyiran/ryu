@@ -3,18 +3,15 @@
 
 import random
 
+import  re_path_finder
+from ryu.app.test_reduce_t.command_sender import CommandSender
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.lib import dpid as dpid_lib
-from ryu.lib import stplib
-from ryu.lib.packet import packet, ethernet, arp, ipv4, ipv6, icmp, ether_types, tcp
+from ryu.lib.packet import packet, ethernet, arp, ipv4, icmp, ether_types, tcp
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
-
-from command_sender import CommandSender
-import  re_path_finder
 
 
 class ReactiveApp(app_manager.RyuApp):

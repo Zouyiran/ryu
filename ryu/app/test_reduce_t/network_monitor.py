@@ -26,7 +26,7 @@ class NetworkMonitor(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(NetworkMonitor, self).__init__(*args, **kwargs)
         self.name = 'NetworkMonitor'
-        self.commandSender = CommandSender()
+        # self.commandSender = CommandSender.get_instance()
 
         # {dpid:{port:mac,port:mac,...},dpid:{port:mac,port:mac,...},...} only switches'mac
         self.dpids_port_to_mac = dict()
@@ -68,17 +68,17 @@ class NetworkMonitor(app_manager.RyuApp):
                 self.logger.info('un register datapath: %04x', datapath.id)
                 del self.dpid_to_dp[datapath.id]
 
-    #unused
-    def _install_arp_entry(self):
-        for dpid in self.dpids_to_access_port:
-            if len(self.dpids_to_access_port[dpid]) == 0:# edge switch
-                datapath = self.dpid_to_dp[dpid]
-                parser = datapath.ofproto_parser
-                ofproto = datapath.ofproto
-                # add arp flood entry
-                match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_ARP, eth_dst='00:00:00:00:00:00')
-                actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-                self.commandSender.add_flow(datapath, 0, match, actions)
+    # #unused
+    # def _install_arp_entry(self):
+    #     for dpid in self.dpids_to_access_port:
+    #         if len(self.dpids_to_access_port[dpid]) == 0:# edge switch
+    #             datapath = self.dpid_to_dp[dpid]
+    #             parser = datapath.ofproto_parser
+    #             ofproto = datapath.ofproto
+    #             # add arp flood entry
+    #             match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_ARP, eth_dst='00:00:00:00:00:00')
+    #             actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+    #             self.commandSender.add_flow(datapath, 0, match, actions)
 
     def update_topology(self):
         switch_list = get_all_switch(self)

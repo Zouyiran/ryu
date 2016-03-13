@@ -8,17 +8,19 @@ from command_sender import CommandSender
 
 
 class FlowCollector(app_manager.RyuApp):
+    '''
+    only collect access switches
+    '''
 
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super(FlowCollector, self).__init__(*args, **kwargs)
-        self.flowSender = CommandSender()
+        self.flowSender = CommandSender.get_instance()
 
         self.dpids = []
         self.dpid_to_flow = dict() # {dpid:[Flow,Flow,Flow,...],dpid:[Flow,Flow,Flow,...],...}
 
-        self.COLLECT_PERIOD = 5
 
     # not used
     def request_stats_switches(self):

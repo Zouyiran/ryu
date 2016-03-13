@@ -14,13 +14,14 @@ from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
 
 from command_sender import CommandSender
 from network_monitor import NetworkMonitor
-from path_calculator import PathCalculator
+from route_calculator import RouteCalculator
 from flow_collector import FlowCollector
 from flow_classifier import FlowClassifier
+from path_pre_install import PathPreInstall
 
-class LowLatencyApp(app_manager.RyuApp):
+class HLApp(app_manager.RyuApp):
     '''
-    reduce latency app
+    hybrid and low latency app
 
     '''
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -30,17 +31,15 @@ class LowLatencyApp(app_manager.RyuApp):
     }
 
     def __init__(self, *args, **kwargs):
-        super(LowLatencyApp, self).__init__(*args, **kwargs)
-        self.commandSender = CommandSender()
-        self.network_monitor = kwargs['network_monitor']
-        self.pathCalculator = PathCalculator()
-        self.flow_collector = kwargs['flow_collector']
-        self.flowClassifier = FlowClassifier()
+        super(HLApp, self).__init__(*args, **kwargs)
+        self.network_monitor = kwargs['network_monitor'] # context
+        self.flow_collector = kwargs['flow_collector'] #context
 
-        self.mpls_to_path = dict()
-        self.LABEL = 0
-        self.LABEL_BE_USED = set()
-        self.LABEL_RECYCLE = set()
+        self.commandSender = CommandSender.get_instance() # util
+        self.routeCalculator = RouteCalculator.get_instance() # util
+
+        self.flowClassifier = FlowClassifier() # mechanism
+        self.pathPreInstall = PathPreInstall() # mechanism
 
         self.DISCOVER_PERIOD = 3
         self.COLLECTOR_PERIOD = 5
@@ -48,21 +47,23 @@ class LowLatencyApp(app_manager.RyuApp):
         self.network_monitor_thread = hub.spawn(self._monitor)
         # self.flow_collector_thread = hub.spawn(self._collector)
 
+    # context
     def _monitor(self):
         while True:
             hub.sleep(self.DISCOVER_PERIOD)
             self.network_monitor.pre_adjacency_matrix = copy.deepcopy(self.network_monitor.adjacency_matrix)
             self.network_monitor.update_topology()
             if self.network_monitor.pre_adjacency_matrix != self.network_monitor.adjacency_matrix:
-                self.logger.info('***********network_aware thread: adjacency_matrix CHANGED***********')
-                self.pathCalculator.pre_path_table = copy.deepcopy(self.pathCalculator.pre_path_table)
-                self.pathCalculator.path_table = self.pathCalculator.get_path_table(
+                self.logger.info('***********adjacency_matrix CHANGED***********')
+                self.routeCalculator.pre_path_table = copy.deepcopy(self.routeCalculator.path_table)
+                self.routeCalculator.path_table = self.routeCalculator.get_path_table(
                                                     self.network_monitor.adjacency_matrix,
                                                     self.network_monitor.dpids_to_access_port)
-                if self.pathCalculator.pre_path_table != self.pathCalculator.path_table:
-                    self.logger.info('***********network_aware thread: path_table CHANGED***********')
-                    self.pre_setup_flows(self.pathCalculator.pre_path_table,
-                                        self.pathCalculator.path_table)
+                if self.routeCalculator.pre_path_table != self.routeCalculator.path_table:
+                    self.logger.info('------path_table CHANGED-------')
+                    self.pathPreInstall.setup_mpls_path(self.routeCalculator.pre_path_table,
+                                                        self.routeCalculator.path_table, self.network_monitor)
+    # context
     def _collector(self):
         while True:
             hub.sleep(self.COLLECTOR_PERIOD)
@@ -73,110 +74,6 @@ class LowLatencyApp(app_manager.RyuApp):
                     self.flow_collector.dpid_to_flow.setdefault(dpid, {})
                     stats_flow = self.flow_collector.request_stats_flow(dpid)[str(dpid)]
                     self.flow_collector.dpid_to_flow[dpid] = self.flow_collector.parse_stats_flow(stats_flow)
-
-
-    # delete old mpls_path, add new mpls_path
-    def pre_setup_flows(self,pre_path_table, path_table):
-        '''
-        mpls path pre-setup mechanism
-        :param pre_path_table:
-        :param path_table:
-        :return:
-        '''
-        print("...................pre-install flow..................")
-        if len(pre_path_table) == 0 and len(path_table) != 0: # initial
-            print("...................initial flows..................")
-            self.LABEL = 0
-            self.LABEL_BE_USED.clear()
-            self.LABEL_RECYCLE.clear()
-            for path_pair in path_table.keys():
-                paths = path_table[path_pair]
-                path_num = len(paths)
-                if path_num > 0:
-                    for path in paths:
-                        n = len(path)
-                        if n > 2:
-                            self.mpls_to_path[self.LABEL] = path
-                            self.LABEL_BE_USED.add(self.LABEL) # record its mpls label
-                            self.__add_flow(path,self.LABEL)
-                            self.LABEL += 1
-        else: # network change
-            print("...................network changed flows..................")
-            delete_path_table = dict()
-            for dpid_pair in self.pathCalculator.pre_path_table:
-                if dpid_pair not in self.pathCalculator.path_table:
-                    delete_path_table[dpid_pair] = self.pathCalculator.pre_path_table[dpid_pair]
-                elif self.pathCalculator.pre_path_table[dpid_pair] != self.pathCalculator.path_table[dpid_pair]:
-                    delete_path_table[dpid_pair] = list()
-                    for each_path in self.pathCalculator.pre_path_table[dpid_pair]:
-                        if each_path not in self.pathCalculator.path_table[dpid_pair]:
-                            delete_path_table[dpid_pair].append(each_path)
-            for dpid_pair in delete_path_table:
-                paths = delete_path_table[dpid_pair]
-                path_num = len(paths)
-                if path_num > 0:
-                    for path in paths:
-                        n = len(path)
-                        if n > 2:
-                            for label in self.mpls_to_path:
-                                if self.mpls_to_path[label] == path:
-                                    self.LABEL_BE_USED.remove(label)
-                                    self.LABEL_RECYCLE.add(label)
-                                    del self.mpls_to_path[label]
-                                    self.__delete_flow(path,label)
-                                    break
-            add_path_table = dict()
-            for dpid_pair in self.pathCalculator.path_table:
-                if dpid_pair not in self.pathCalculator.pre_path_table:
-                    add_path_table[dpid_pair] = self.pathCalculator.path_table[dpid_pair]
-                elif self.pathCalculator.pre_path_table[dpid_pair] != self.pathCalculator.path_table[dpid_pair]:
-                    add_path_table[dpid_pair] = list()
-                    for each_path in self.pathCalculator.path_table[dpid_pair]:
-                        if each_path not in self.pathCalculator.pre_path_table[dpid_pair]:
-                            add_path_table[dpid_pair].append(each_path)
-            for dpid_pair in add_path_table:
-                paths = add_path_table[dpid_pair]
-                path_num = len(paths)
-                if path_num > 0:
-                    for path in paths:
-                        n = len(path)
-                        if n > 2:
-                            if self.LABEL_RECYCLE:
-                                label = self.LABEL_RECYCLE.pop()
-                                self.mpls_to_path[label] = path
-                                self.LABEL_BE_USED.add(label)
-                                self.__add_flow(path,label)
-                            else:
-                                self.mpls_to_path[self.LABEL] = path
-                                self.LABEL_BE_USED.add(self.LABEL)
-                                self.__add_flow(path,self.LABEL)
-                                self.LABEL += 1
-    def __delete_flow(self, path, label):
-        n = len(path)
-        if n >2:
-            for i in range(1,n-1):
-                dpid = path[i]
-                priority = OFP_DEFAULT_PRIORITY # 32768 or 0x8000
-                match = {
-                        "dl_type":ether_types.ETH_TYPE_MPLS,
-                        "mpls_label":label,
-                        }
-                self.commandSender.delete_flow_rest(dpid, priority, match)
-    def __add_flow(self, path, label):
-        n = len(path)
-        if n >2:
-            for i in range(1,n-1):
-                dpid = path[i]
-                priority = OFP_DEFAULT_PRIORITY # 32768 or 0x8000
-                in_port = self.network_monitor.links_dpid_to_port[(path[i-1],path[i])][1]
-                out_port = self.network_monitor.links_dpid_to_port[(path[i],path[i+1])][0]
-                match = {
-                        "dl_type":ether_types.ETH_TYPE_MPLS,
-                        "in_port":in_port,
-                        "mpls_label":label,
-                        }
-                actions = [{"type":"OUTPUT","port":out_port}]
-                self.commandSender.add_flow_rest_1(dpid, priority, match, actions)
 
 
     # install table-miss flow entry for each switch
@@ -228,57 +125,74 @@ class LowLatencyApp(app_manager.RyuApp):
             src_sw = self.__get_host_location(src_ip)
             dst_sw = self.__get_host_location(dst_ip)
             if src_sw and dst_sw:# end-to-end connection
-                traffic = None
                 src_dpid = src_sw[0]
                 dst_dpid = dst_sw[0]
                 src_in_port = src_sw[1]
                 dst_out_port = dst_sw[1]
+                eth = pkt.get_protocols(ethernet.ethernet)[0]
+                src_mac = eth.src
+                dst_mac = eth.dst
 
                 icmp_pkt = pkt.get_protocol(icmp.icmp)
                 tcp_pkt = pkt.get_protocol(tcp.tcp)
 
-                # for tcp: NOT use mpls
                 if isinstance(tcp_pkt,tcp.tcp):
                     print("----tcp-------")
                     src_tcp = tcp_pkt.src_port
                     dst_tcp = tcp_pkt.dst_port
-                    if src_dpid == dst_dpid and src_dpid == dpid:
-                        print("src_dpid == dst_dpid")
-                        priority = OFP_DEFAULT_PRIORITY
-                        match = {
-                            "dl_type":ether_types.ETH_TYPE_IP,
-                            "nw_proto":6,
-                            "in_port":in_port,
-                            "nw_src":src_ip,
-                            "nw_dst":dst_ip,
-                            "tp_src":src_tcp,
-                            "tp_dst":dst_tcp
-                                }
-                        actions = [{"type":"OUTPUT","port":dst_out_port}]
-                        if buffer_id != ofproto.OFP_NO_BUFFER:
-                            self.commandSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id, 100)
+                    if dpid == src_dpid: # packet_in
+                        if src_dpid == dst_dpid:
+                            print("src_dpid == dst_dpid")
+                            priority = OFP_DEFAULT_PRIORITY
+                            match = {
+                                "dl_type":ether_types.ETH_TYPE_IP,
+                                "nw_proto":6,
+                                "in_port":in_port,
+                                "nw_src":src_ip,
+                                "nw_dst":dst_ip,
+                                "tp_src":src_tcp,
+                                "tp_dst":dst_tcp
+                                    }
+                            actions = [{"type":"OUTPUT","port":dst_out_port}]
+                            if buffer_id != ofproto.OFP_NO_BUFFER:
+                                self.commandSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id, 100)
+                            else:
+                                self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 100)
+                                data = msg.data
+                                self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
                         else:
-                            self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 100)
-                            data = msg.data
-                            self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
-                    else:
-                        print("src_dpid != dst_dpid")
-                        if dpid == src_dpid:
-                            traffic = self.pathCalculator.get_traffic(src_dpid,dst_dpid)
-                        if traffic: # end-to-end reachable
-                            self.install_flow_tcp(traffic, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
-                            data = msg.data
-                            out_port = self.network_monitor.links_dpid_to_port[(traffic[0],traffic[1])][0]
-                            self.commandSender.packet_out(datapath, in_port, out_port, data)
+                            print("src_dpid != dst_dpid")
+                            traffic = self.routeCalculator.get_traffic(src_dpid, dst_dpid) # for 1st packet
+                            route = self.routeCalculator.get_route(src_dpid, dst_dpid) # for follow-up packet
+                            if traffic:
+                                if len(traffic) == 2:
+                                    self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
+                                    data = msg.data
+                                    out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
+                                    self.commandSender.packet_out(datapath, in_port, out_port, data)
+                                elif len(traffic) > 2:
+                                    print("pack mpls dpid on traffic[0]:",dpid)
+                                    out_port = self.network_monitor.links_dpid_to_port[(traffic[0],traffic[1])][0]
+                                    label = self._get_mpls_label(traffic)
+                                    pack = self.__add_mpls(pkt, label, src_mac, dst_mac)
+                                    pack.serialize()
+                                    data = pack.data
+                                    self.commandSender.packet_out(datapath, in_port, out_port, data)
+                                    self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
+                    elif dpid == dst_dpid:
+                        print("unpack mpls dpid on traffic[-1]:",dpid)
+                        out_port = dst_out_port
+                        pack = self.__remove_mpls(pkt, src_mac, dst_mac)
+                        pack.serialize()
+                        data = pack.data
+                        self.commandSender.packet_out(datapath, in_port, out_port, data)
                     return
 
                 # for icmp: use mpls
                 if isinstance(icmp_pkt,icmp.icmp):
                     print("----icmp-------")
                     print("dpid:",dpid)
-                    eth = pkt.get_protocols(ethernet.ethernet)[0]
-                    src_mac = eth.src
-                    dst_mac = eth.dst
+
                     if dpid == src_dpid: # from src packet_in
                         # NO need to mpls
                         if src_dpid == dst_dpid:
@@ -299,7 +213,7 @@ class LowLatencyApp(app_manager.RyuApp):
                                 self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
                         else:
                             print("src_dpid != dst_dpid",src_dpid,dst_dpid)
-                            traffic = self.pathCalculator.get_traffic(src_dpid, dst_dpid)
+                            traffic = self.routeCalculator.get_traffic(src_dpid, dst_dpid)
                             if traffic:
                                 # NO need to mpls
                                 if len(traffic) == 2:
@@ -330,8 +244,8 @@ class LowLatencyApp(app_manager.RyuApp):
                         self.commandSender.packet_out(datapath, in_port, out_port, data)
                     return
     def _get_mpls_label(self,traffic):
-        for label in self.mpls_to_path.keys():
-            if self.mpls_to_path[label] == traffic:
+        for label in self.pathPreInstall.mpls_to_path.keys():
+            if self.pathPreInstall.mpls_to_path[label] == traffic:
                 return label
         return None
     def __add_mpls(self,  pkt_old, label, src_mac, dst_mac):
