@@ -58,7 +58,7 @@ def main(n_switches, count_ping):
                   cleanup=True)
     net.addController( controller=RemoteController,
                        ip=CONTROLLER_IP,
-                       port=CONTROLLER_PORT)
+                       port=CONTROLLER_PORT,t=100)
 
     net.start()
     # time.sleep(10)
