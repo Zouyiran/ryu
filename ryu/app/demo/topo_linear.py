@@ -86,4 +86,4 @@ if __name__ == '__main__':
     if os.getuid() != 0:
         logging.debug("You are NOT root")
     else:
-        main(20,5)
+        main(10,5)

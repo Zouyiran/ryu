@@ -102,18 +102,35 @@ class PathPreInstall(object):
                             }
                     self.commandSender.delete_flow_rest(dpid, OFP_DEFAULT_PRIORITY, match)
 
+                # match = {
+                #         "dl_type":ether_types.ETH_TYPE_IP,
+                #         "nw_proto":6,
+                #         "in_port":in_port,
+                #         "nw_src":src_ip,
+                #         "nw_dst":dst_ip,
+                #         "tp_src":src_tcp,
+                #         "tp_dst":dst_tcp
+                #         }
+                # actions = [{"type":"OUTPUT","port":out_port}]
+
+
+
     def __add_flow(self, path, label, network_monitor):
         n = len(path)
-        if n >2:
-            for i in range(1,n-1):
+        if n > 2:
+            for i in range(1,n):
                 dpid = path[i]
-                if dpid in network_monitor.dpids:
-                    in_port = network_monitor.links_dpid_to_port[(path[i-1],path[i])][1]
-                    out_port = network_monitor.links_dpid_to_port[(path[i],path[i+1])][0]
-                    match = {
-                            "dl_type":ether_types.ETH_TYPE_MPLS,
-                            "in_port":in_port,
-                            "mpls_label":label,
-                            }
-                    actions = [{"type":"OUTPUT","port":out_port}]
-                    self.commandSender.add_flow_rest_1(dpid, OFP_DEFAULT_PRIORITY, match, actions)
+                if i == n-1: # pop mpls
+                    pass
+
+                else:
+                    if dpid in network_monitor.dpids:
+                        in_port = network_monitor.links_dpid_to_port[(path[i-1],path[i])][1]
+                        out_port = network_monitor.links_dpid_to_port[(path[i],path[i+1])][0]
+                        match = {
+                                "dl_type":ether_types.ETH_TYPE_MPLS,
+                                "in_port":in_port,
+                                "mpls_label":label,
+                                }
+                        actions = [{"type":"OUTPUT","port":out_port}]
+                        self.commandSender.add_flow_rest_1(dpid, OFP_DEFAULT_PRIORITY, match, actions)
