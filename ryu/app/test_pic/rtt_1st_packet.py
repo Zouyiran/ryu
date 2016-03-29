@@ -25,7 +25,7 @@ simple = [12.0, 15.2, 19.0, 21.2, 24.0, 27.3, 30.1, 32.5, 35.5]
 
 pre_install = [6.49, 8.69, 10.9, 13.1, 15.2, 17.5, 19.7, 21.9, 24.4]
 
-plt.plot(x,simple,"k-o",label="contain Extra Latency")
+plt.plot(x,simple,color='k', marker='o', markersize=10, linestyle='-',label="contain Extra Latency")
 plt.plot(x,pre_install,"k-^",label="no Extra Latency")
 plt.axis([0,10,0,50])
 plt.xticks([0,1,2,3,4,5,6,7,8,9,10])

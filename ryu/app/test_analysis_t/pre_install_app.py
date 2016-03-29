@@ -277,8 +277,8 @@ class ProactiveApp(app_manager.RyuApp):
         dst = eth.dst
         src = eth.src
         ar = pkt.get_protocol(arp.arp)
-        # ic = pkt.get_protocol(icmp.icmp)
-        #
+        ic = pkt.get_protocol(icmp.icmp)
+
         if isinstance(ar, arp.arp):
             print("-----arp packet------")
             print("dpid:",datapath.id)
@@ -288,9 +288,9 @@ class ProactiveApp(app_manager.RyuApp):
         #         print "dpid:",each
         #         for a in self.mac_to_port[each]:
         #             print "mac:",a,"->","port:",self.mac_to_port[each][a]
-        # if isinstance(ic, icmp.icmp):
-        #     print("-----icmp packet------")
-        #     print("dpid:",datapath.id)
+        if isinstance(ic, icmp.icmp):
+            print("-----icmp packet------")
+            print("dpid:",datapath.id)
         #     print(pkt)
         #     for each in self.mac_to_port:
         #         print "dpid:",each
