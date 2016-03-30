@@ -135,9 +135,10 @@ class ReRouter(object):
     '''
 
 
-    def __init__(self):
+    def __init__(self, g):
         super(ReRouter, self).__init__()
         self.bih = list()
+        self.g = g
 
     # def request_stats_port(self, dpid):
     #     res = self.flowSender.get_stats_port(dpid)
@@ -146,22 +147,22 @@ class ReRouter(object):
     def create_bw_g(self,matrix):#(u,v,bw)
         if matrix:
             nodes = matrix.keys()
-            g = nx.DiGraph()
+            g = nx.Graph()
             g.add_nodes_from(nodes)
             for i in nodes:
                 for j in nodes:
                     if i != j and matrix[i][j] != float('inf'):
                         g.add_edge(i,j,weight=matrix[i][j])
 
-    def build_BIH(self, g, bw_list):# beta_list=[B, 2B/3, B/3, 0]
+    def build_BIH(self, bw_list):# beta_list=[B, 2B/3, B/3, 0]
         for bw in bw_list:
            print("build_BIH bw:", bw)
-           big =  self._build_BIG(g, bw)
+           big =  self._build_BIG( bw)
            self.bih.append(big)
 
-    def _build_BIG(self, g, bw):
-        big = set() # the element is DiGraph
-        nodes = g.nodes()
+    def _build_BIG(self, bw):
+        big = set() # the element is Graph
+        nodes = self.g.nodes()
         flag = False
         for i in nodes:
             for bi in big:
@@ -171,31 +172,43 @@ class ReRouter(object):
                         break
             if flag:
                 continue
-            bi = self._get_BI(g,bw,i)
-            if len(bi.nodes()) > 1:
+            else:
+                bi = self._get_BI(bw,i)
                 big.add(bi)
-        return big
+        res = set()
+        for bi in big:
+            bi_nodes = bi.nodes()
+            count = 0
+            for _ in bi_nodes:
+                count += 1
+                if count == 2:
+                    res.add(bi)
+                    break
+        return res
 
-    def _get_BI(self, g, bw, node):
-        bi_nodes = set()
-        bi_nodes.add(node)
-        bw_dict = nx.get_edge_attributes(g,'weight')
-        stack = list()
-        neighbor_nodes = nx.all_neighbors(g,node) # return iter
-        for i in neighbor_nodes:
-            if i :
-                if bw_dict[(node,i)] >= bw:
-                    stack.append(i)
-        while len(stack) != 0:
-            another_node = stack.pop()
-            bi_nodes.add(another_node)
-            neighbor_nodes = nx.all_neighbors(g,another_node) # return iter
-            for i in neighbor_nodes:
-                if i:
-                    if bw_dict[(another_node,i)] >= bw and i not in bi_nodes:
-                        stack.append(i)
-        subgraph = g.subgraph(list(bi_nodes))
-        return subgraph
+
+    def _get_BI(self, bw, node):
+        bi = nx.Graph()
+        queue = list() # satisfy bw requirement
+        book = list() # in bi
+        head = 0
+        tail = 0
+        queue.append(node)
+        tail += 1
+        book.append(node)
+        while head < tail:
+            cur = queue[head]
+            neighbors = self.g.adj[cur]
+            for i in neighbors:
+                if i not in book and neighbors[i]['weight'] >= bw:
+                    queue.append(i)
+                    tail += 1
+                    bi.add_node(i)
+                    bi.add_edge(cur,i,{'weight':neighbors[i]['weight']})
+                    book.append(i)
+            head += 1
+        return bi
+
 
     def re_route(self, g, u, v): # u --> v
         route = None
@@ -203,10 +216,7 @@ class ReRouter(object):
             for bi in big:
                 bi_nodes = bi.nodes()
                 if u in bi_nodes and v in bi_nodes:
-                    print("bi_nodes:")
-                    print(bi_nodes)
                     route = nx.shortest_path(bi,u,v)
-                    print("re_route")
                     return route
         if nx.has_path(g,u,v):
             print("di_route")
@@ -231,13 +241,24 @@ class ReRouter(object):
             if route is None:
                 route = nx.shortest_path(g,u,v)
         return route
+    
+def test():
+     g = nx.Graph()
+     nodes = [1,2,3,4,5]
+     edges = [(1,2),(1,3),(1,5),(2,3),(2,4)]
+     weight = [2,4,9,5,7]
+     g.add_nodes_from(nodes)
+     num = len(edges)
+     for i in range(num):
+         g.add_edge(edges[i][0],edges[i][1], {'weight':weight[i]})
+     return g 
 
 
 def main(nodes):
     bws = [1,2,3,4,5,6,7,8,9,10]
-    re = ReRouter()
-    network = nx.waxman_graph(nodes, 0.999, 0.01) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
-    g = nx.DiGraph()
+    # g = test()
+    network = nx.waxman_graph(nodes) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
+    g = nx.Graph()
     g.add_nodes_from(network.nodes())
     for link in network.edges():
         bw = bws[random.randint(0,9)]
@@ -252,7 +273,8 @@ def main(nodes):
     for i in links:
         print(i, weights[(i[0],i[1])])
 
-    re.build_BIH(g,[7,3])
+    re = ReRouter(g)
+    re.build_BIH([7,3])
     for big in re.bih:
         print("---big:")
         for bi in big:
@@ -261,12 +283,12 @@ def main(nodes):
             print(bi.nodes())
             print("edges:")
             print(bi.edges())
-    # res = re.re_route(g,1,20)
-    # print(res)
+    res = re.re_route(g,4,5)
+    print('res:',res)
 
 
 if __name__ == "__main__":
-    main(20)
+    main(200)
 
 
 
