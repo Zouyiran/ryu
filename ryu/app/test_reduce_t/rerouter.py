@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import random
+import time
 import networkx as nx
 
 from ryu.base import app_manager
@@ -157,40 +158,33 @@ class ReRouter(object):
     def build_BIH(self, bw_list):# beta_list=[B, 2B/3, B/3, 0]
         for bw in bw_list:
            print("build_BIH bw:", bw)
-           big =  self._build_BIG( bw)
+           big = self._build_BIG(bw)
            self.bih.append(big)
 
     def _build_BIG(self, bw):
         big = set() # the element is Graph
-        nodes = self.g.nodes()
-        flag = False
-        for i in nodes:
+        g_nodes = self.g.nodes()
+        for i in g_nodes:
+            flag = False
             for bi in big:
-                if bi:
-                    if i in bi.nodes():
-                        flag = True
-                        break
-            if flag:
-                continue
-            else:
+                bi_nodes = bi.nodes()
+                if i in bi_nodes:
+                    flag = True
+                    break
+            if not flag:
                 bi = self._get_BI(bw,i)
                 big.add(bi)
         res = set()
         for bi in big:
-            bi_nodes = bi.nodes()
-            count = 0
-            for _ in bi_nodes:
-                count += 1
-                if count == 2:
-                    res.add(bi)
-                    break
+            bi_edges = bi.edges()
+            if len(bi_edges) > 0:
+                res.add(bi)
         return res
-
 
     def _get_BI(self, bw, node):
         bi = nx.Graph()
         queue = list() # satisfy bw requirement
-        book = list() # in bi
+        book = list() # mark in bi
         head = 0
         tail = 0
         queue.append(node)
@@ -200,71 +194,125 @@ class ReRouter(object):
             cur = queue[head]
             neighbors = self.g.adj[cur]
             for i in neighbors:
-                if i not in book and neighbors[i]['weight'] >= bw:
+                weight = neighbors[i]['weight']
+                if i not in book and weight >= bw:
                     queue.append(i)
                     tail += 1
-                    bi.add_node(i)
-                    bi.add_edge(cur,i,{'weight':neighbors[i]['weight']})
+                    bi.add_edge(cur,i,{'weight':weight})
                     book.append(i)
             head += 1
+        bi_all = self.g.subgraph(bi.nodes())
+        bi_all_edges = nx.get_edge_attributes(bi_all,'weight') #{(1,2):10,}
+        bi_edges = bi.edges()
+        for edge in bi_all_edges:
+            if edge not in bi_edges:
+                the_bw = bi_all_edges[edge]
+                if the_bw >= bw:
+                    bi.add_edge(edge[0],edge[1],{'weight':the_bw})
+                    bi.add_edge(edge[1],edge[0],{'weight':the_bw})
         return bi
 
-
-    def re_route(self, g, u, v): # u --> v
+    def re_route(self, u, v): # u --> v
+        start = time.clock()
         route = None
+        level = 0
         for big in self.bih: # from high-level to low-level
+            level += 1
             for bi in big:
                 bi_nodes = bi.nodes()
+                bi_edges = bi.edges()
                 if u in bi_nodes and v in bi_nodes:
+                    print("....re_route")
+                    print "get route at level_num:",level
+                    print("bi_node_num:",len(bi_nodes))
+                    print("bi_edge_num:",len(bi_edges))
                     route = nx.shortest_path(bi,u,v)
+                    cost = time.clock()-start
+                    print "cost_re:", cost
                     return route
-        if nx.has_path(g,u,v):
-            print("di_route")
-            route = nx.shortest_path(g,u,v)
+        if nx.has_path(self.g,u,v):
+            print("....re_shortest_path")
+            route = nx.shortest_path(self.g,u,v)
+        cost = time.clock()-start
+        print "cost_re:", cost
         return route
 
-    def di_route(self, g, u, v, bw):
+    def di_route(self, u, v, bw):
+        start = time.clock()
         route = None
-        if nx.has_path(g,u,v):
-            routes = nx.all_simple_paths(g,u,v)
+        if nx.has_path(self.g,u,v):
+            wb = nx.get_edge_attributes(self.g,'weight')
+            routes = nx.all_shortest_paths(self.g,u,v) # generator
             flag = True
             for r in routes:
-                for i in range(len(r)-1):
-                    if nx.get_edge_attributes(g,'weight')[(r[i],r[i+1])] < bw:
+                num = len(r)
+                for i in range(num-1):
+                    if wb.has_key((r[i],r[i+1])) and wb[(r[i],r[i+1])] < bw:
+                        flag = False
+                        break
+                    elif wb.has_key((r[i+1],r[i])) and wb[(r[i+1],r[i])] < bw:
                         flag = False
                         break
                 if flag:
+                    print("....di_route")
                     route = r
                     break
                 else:
                     continue
             if route is None:
-                route = nx.shortest_path(g,u,v)
+                print("....di_shortest_path")
+                route = nx.shortest_path(self.g,u,v)
+        cost = time.clock()-start
+        print "cost_di:", cost
         return route
     
-def test():
+def test_manual():
      g = nx.Graph()
-     nodes = [1,2,3,4,5]
-     edges = [(1,2),(1,3),(1,5),(2,3),(2,4)]
-     weight = [2,4,9,5,7]
+     nodes = [1,2,3,4,5,6,7]
+     edges = [(1,2),(1,3),(1,5),(2,3),(2,7),(3,6),(4,5),(6,7)]
+     weight = [2,5,9,7,3,5,10,2]
      g.add_nodes_from(nodes)
      num = len(edges)
      for i in range(num):
          g.add_edge(edges[i][0],edges[i][1], {'weight':weight[i]})
-     return g 
+         g.add_edge(edges[i][1],edges[i][0], {'weight':weight[i]})
+     return g
 
-
-def main(nodes):
+def test_er(nodes):
     bws = [1,2,3,4,5,6,7,8,9,10]
-    # g = test()
+    network = nx.erdos_renyi_graph(nodes,0.4) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
+    g = nx.Graph()
+    g.add_nodes_from(network.nodes())
+    for link in network.edges():
+        bw = bws[random.randint(0,9)]
+        g.add_edge(link[0],link[1],{'weight':bw})
+        g.add_edge(link[1],link[0],{'weight':bw})
+    return g
+
+
+def test_wax(nodes):
+    bws = [1,2,3,4,5,6,7,8,9,10]
     network = nx.waxman_graph(nodes) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
     g = nx.Graph()
     g.add_nodes_from(network.nodes())
     for link in network.edges():
         bw = bws[random.randint(0,9)]
-        g.add_edge(link[0],link[1],weight=bw)
-        g.add_edge(link[1],link[0],weight=bw)
+        g.add_edge(link[0],link[1],{'weight':bw})
+        g.add_edge(link[1],link[0],{'weight':bw})
+    return g
 
+
+def main(nodes):
+    g = test_er(nodes)
+    print("erdos_renyi")
+    # print("waxmam")
+    g_nodes = g.nodes()
+    print("erdos_renyi_nodes:",len(g_nodes))
+    # print("waxmax_nodes:",len(g_nodes))
+    g_edges = g.edges()
+    print("erdos_renyi_edges:",len(g_edges))
+    # print("waxman_edges:",len(g_edges))
+    print('...............network.............')
     print("-->nodes:")
     print(g.nodes())
     print("-->edges:")
@@ -272,23 +320,36 @@ def main(nodes):
     weights = nx.get_edge_attributes(g,'weight')
     for i in links:
         print(i, weights[(i[0],i[1])])
+    print('...............network.............')
+
 
     re = ReRouter(g)
-    re.build_BIH([7,3])
-    for big in re.bih:
-        print("---big:")
-        for bi in big:
-            print("bi:")
+    bw_level = [7,5,2]
+    re.build_BIH(bw_level)
+    print('............BIH................')
+    for i in range(len(re.bih)):
+        print "------------level:",bw_level[i]
+        for bi in re.bih[i]:
+            print("-----bi:")
             print("node:")
             print(bi.nodes())
             print("edges:")
             print(bi.edges())
-    res = re.re_route(g,4,5)
+    print('............BIH................')
+    res = re.re_route(1,4)
+    res_2 = re.di_route(1,4,7)
+    print('............result................')
     print('res:',res)
+    print('res_2:',res_2)
+    print('............result................')
 
 
 if __name__ == "__main__":
-    main(200)
+    nodes = [7]
+    # nodes = [30,100,300,500,700,1000]
+    for i in nodes:
+        print(">>>>>>>>>>>>nodes<<<<<<<<<<<<<:",i)
+        main(i)
 
 
 
