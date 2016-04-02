@@ -289,6 +289,30 @@ def topo_manual():
          g.add_edge(edges[i][1],edges[i][0], {'weight':weight[i]})
      return g
 
+def topo_pl(nodes):# power law
+    bws = [1,2,3,4,5,6,7,8,9,10]
+    network = nx.powerlaw_cluster_graph(nodes,2,0.3) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
+    g = nx.Graph()
+    g.add_nodes_from(network.nodes())
+    for link in network.edges():
+        bw = random.choice(bws)
+        g.add_edge(link[0],link[1],{'weight':bw})
+        g.add_edge(link[1],link[0],{'weight':bw})
+    return g
+
+
+def topo_ws(nodes): # small world
+    bws = [1,2,3,4,5,6,7,8,9,10]
+    network = nx.watts_strogatz_graph(nodes,2,0.3) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
+    g = nx.Graph()
+    g.add_nodes_from(network.nodes())
+    for link in network.edges():
+        bw = random.choice(bws)
+        g.add_edge(link[0],link[1],{'weight':bw})
+        g.add_edge(link[1],link[0],{'weight':bw})
+    return g
+
+
 def topo_er(nodes):
     bws = [1,2,3,4,5,6,7,8,9,10]
     network = nx.erdos_renyi_graph(nodes,0.009) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
