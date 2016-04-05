@@ -3,6 +3,7 @@
 
 import random
 import time
+import json
 import networkx as nx
 
 from ryu.base import app_manager
@@ -131,10 +132,6 @@ build BIH
 #         self.bih = list()
 
 class ReRouter(object):
-    '''
-    only collect access switches
-    '''
-
 
     def __init__(self, g):
         super(ReRouter, self).__init__()
@@ -227,13 +224,15 @@ class ReRouter(object):
                     bi_edges = bi.edges()
                     # print("bi_edges:",bi_edges)
                     if u in bi_nodes and v in bi_nodes:
+                        mid = time.clock()
                         print("....re_route")
                         print "get route at level_num:",level
                         print("bi_node_num:",len(bi_nodes))
                         print("bi_edge_num:",len(bi_edges))
                         route = nx.shortest_path(bi,u,v)
-                        cost = time.clock()-start # cost_t = time.time()-start_t
-                        print "cost_re:", cost
+                        # cost_t = time.time()-start_t
+                        print 'mid_cost_re:', time.clock() - mid
+                        print "cost_re:", time.clock()-start
                         return route
             if nx.has_path(self.g,u,v):
                 print("....re_shortest_path")
@@ -289,19 +288,7 @@ def topo_manual():
          g.add_edge(edges[i][1],edges[i][0], {'weight':weight[i]})
      return g
 
-def topo_pl(nodes):# power law
-    bws = [1,2,3,4,5,6,7,8,9,10]
-    network = nx.powerlaw_cluster_graph(nodes,2,0.3) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
-    g = nx.Graph()
-    g.add_nodes_from(network.nodes())
-    for link in network.edges():
-        bw = random.choice(bws)
-        g.add_edge(link[0],link[1],{'weight':bw})
-        g.add_edge(link[1],link[0],{'weight':bw})
-    return g
-
-
-def topo_ws(nodes): # small world
+def topo_sw(nodes): # small world
     bws = [1,2,3,4,5,6,7,8,9,10]
     network = nx.watts_strogatz_graph(nodes,2,0.3) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
     g = nx.Graph()
@@ -312,10 +299,29 @@ def topo_ws(nodes): # small world
         g.add_edge(link[1],link[0],{'weight':bw})
     return g
 
-
 def topo_er(nodes):
     bws = [1,2,3,4,5,6,7,8,9,10]
-    network = nx.erdos_renyi_graph(nodes,0.009) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
+    network = nx.erdos_renyi_graph(nodes,0.1)
+    g = nx.Graph()
+    g.add_nodes_from(network.nodes())
+    for link in network.edges():
+        bw = random.choice(bws)
+        g.add_edge(link[0],link[1],{'weight':bw})
+        g.add_edge(link[1],link[0],{'weight':bw})
+    return g
+
+def topo_pl(nodes):
+    '''
+    powerlaw_cluster_graph(n, m, p)
+    m : int
+    the number of random edges to add for each new node
+    p : float,
+        Probability of adding a triangle after adding a random edge
+    :param nodes:
+    :return:
+    '''
+    bws = [1,2,3,4,5,6,7,8,9]
+    network = nx.powerlaw_cluster_graph(nodes,2,0.13)
     g = nx.Graph()
     g.add_nodes_from(network.nodes())
     for link in network.edges():
@@ -325,8 +331,8 @@ def topo_er(nodes):
     return g
 
 def topo_wax(nodes):
-    bws = [1,2,3,4,5,6,7,8,9,10]
-    network = nx.waxman_graph(nodes,0.45,0.15) # (n, alpha=0.4, beta=0.1, L=None, domain=(0, 0, 1, 1)):
+    bws = [1,2,3,4,5,6,7,8,9]
+    network = nx.waxman_graph(nodes,0.5,0.1) # alpha=0.4, beta=0.1
     g = nx.Graph()
     g.add_nodes_from(network.nodes())
     for link in network.edges():
@@ -336,36 +342,51 @@ def topo_wax(nodes):
     return g
 
 def main(nodes, test): # test is 1 or 2
-    #generate topo
+    '''
+    on differ topo to test 1 or 2
+    :param nodes:
+    :param test:
+    :return:
+    '''
+    # ----------------random generate a topo
     g = topo_er(nodes)
     g_nodes = g.nodes()
     print("topo_nodes:",len(g_nodes))
     g_edges = g.edges()
     print("topo_edges:",len(g_edges))
-    # print('...............network.............')
-    # print("-->nodes:")
-    # print(g.nodes())
-    # print("-->edges:")
-    # links = g.edges()
-    # weights = nx.get_edge_attributes(g,'weight')
-    # for i in links:
-    #     print(i, weights[(i[0],i[1])])
-    # print('...............network.............')
 
-    # create re obj
+    # --------------store a topo to a file
+    # dict_g = nx.to_dict_of_dicts(g)
+    # g_json = json.dumps(dict_g)
+    # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/pl_topo_3.txt','w')
+    # file.write(g_json)
+
+    # -------------------use a topo from file
+    # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/pl_topo_3.txt','r')
+    # dict = json.loads(file.read())
+    # g = nx.from_dict_of_dicts(dict)
+
+    # ---------------generate a topo gg from g
+    # gg = nx.Graph()
+    # g_nodes = g.nodes()
+    # for i in g_nodes:
+    #     gg.add_node(int(i))
+    # g_edges = g.edges()
+    # g_weight = nx.get_edge_attributes(g,'weight')
+    # for link in g_edges:
+    #     try:
+    #         gg.add_edge(int(link[0]),int(link[1]),{'weight':g_weight[link]})
+    #         gg.add_edge(int(link[1]),int(link[0]),{'weight':g_weight[link]})
+    #     except:
+    #         pass
+    # gg_nodes = gg.nodes()
+    # print("topo_nodes:",len(gg_nodes))
+    # gg_edges = gg.edges()
+    # print("topo_edges:",len(gg_edges))
+
     re = ReRouter(g)
     bw_level = [7,5,2]
     re.build_BIH(bw_level)
-    print('............BIH................')
-    for i in range(len(re.bih)):
-        print "------------level:",bw_level[i]
-        for bi in re.bih[i]:
-            print("-----bi:")
-            print("node:")
-            print(bi.nodes())
-            print("edges:")
-            print(bi.edges())
-    print('............BIH................')
 
     print('............ROUTE................')
     if test == 1:
@@ -374,17 +395,28 @@ def main(nodes, test): # test is 1 or 2
         test_2(re)
     print('............ROUTE................')
 
+
 def test_1(re):
-    res_re = re.re_route(1,18)
-    res_di = re.di_route(1,18)
+    '''
+    test route time
+    route for some pair of node
+    :param re:
+    :return:
+    '''
+    res_re = re.re_route(1,10)
+    res_di = re.di_route(1,10)
     print('route_re:',res_re)
     print('route_di:',res_di)
 
 def test_2(re):
-    level = len(re.bih) # bih is a list
-    big = re.bih[0] # big is a set
+    '''
+    on highest BIH level
+    test differ BI scale to route for some pair of node
+    :param re:
+    :return:
+    '''
+    big = re.bih[0]
     # bi  = random.choice(big)
-
     bi = big[0]
     max_n = len(bi)
     for i in range(1,len(big)):
@@ -402,37 +434,34 @@ def test_2(re):
         while v == u:
             v = random.choice(nodes)
         res_re = re.re_route(u,v)
-        res_ree = re.re_route(u,v,bi)
+        # res_ree = re.re_route(u,v,bi)
         res_di = re.di_route(u,v)
         print('route_re:',res_re)
-        print('route_ree:',res_ree)
+        # print('route_ree:',res_ree)
         print('route_di:',res_di)
 
 def test_3(nodes):
-    #generate er topo
-    er = topo_er(nodes)
-    er_nodes = er.nodes()
-    print("er_nodes:",len(er_nodes))
-    er_edges = er.edges()
-    print("er_edges:",len(er_edges))
+    '''
+    test BIH build time on power-law and wax-man
+    :param nodes:
+    :return:
+    '''
+    # ------------generate pl topo
+    pl = topo_pl(nodes)
+    er_nodes = pl.nodes()
+    print("pl_nodes:",len(er_nodes))
+    er_edges = pl.edges()
+    print("pl_edges:",len(er_edges))
 
-    # print('...............er network.............')
-    # print("-->nodes:")
-    # print(er.nodes())
-    # print("-->edges:")
-    # links = er.edges()
-    # weights = nx.get_edge_attributes(er,'weight')
-    # for i in links:
-    #     print(i, weights[(i[0],i[1])])
-    # print('...............er network.............')
-
-    re = ReRouter(er)
-    bw_level = [7,5,2]
+    # ----------------build BIH on  power-law
+    re = ReRouter(pl)
+    bw_level = [9,8,7,6,5,4,3,2,1]
+    print('pl build time:')
     re.build_BIH(bw_level)
-    print('............er BIH................')
+    print('............pl BIH................')
     for i in range(len(re.bih)):
         print "------------level:",bw_level[i],'bi count:',len(re.bih[i])
-    print('............er BIH................')
+    print('............pl BIH................')
     # print('............er BIH................')
     # for i in range(len(re.bih)):
     #     print "------------level:",bw_level[i]
@@ -444,66 +473,31 @@ def test_3(nodes):
     #         print(bi.edges())
     # print('............er BIH................')
 
-    #generate wax topo
+    # -------------generate wax topo
     wax = topo_wax(nodes)
     wax_nodes = wax.nodes()
     print("wax_nodes:",len(wax_nodes))
     wax_edges = wax.edges()
     print("wax_edges:",len(wax_edges))
 
-    # print('...............wax network.............')
-    # print("-->nodes:")
-    # print(wax.nodes())
-    # print("-->edges:")
-    # links = wax.edges()
-    # weights = nx.get_edge_attributes(wax,'weight')
-    # for i in links:
-    #     print(i, weights[(i[0],i[1])])
-    # print('...............wax network.............')
-
+    # -----------------build BIH on  wax-man
     re = ReRouter(wax)
-    bw_level = [7,5,2]
+    print('wax build time:')
     re.build_BIH(bw_level)
     print('............wax BIH................')
     for i in range(len(re.bih)):
         print "------------level:",bw_level[i],'bi count:',len(re.bih[i])
     print('............wax BIH................')
-    # print('............wax BIH................')
-    # for i in range(len(re.bih)):
-    #     print "------------level:",bw_level[i]
-    #     for bi in re.bih[i]:
-    #         print("-----bi:")
-    #         print("node:")
-    #         print(bi.nodes())
-    #         print("edges:")
-    #         print(bi.edges())
-    # print('............wax BIH................')
+
 
 if __name__ == "__main__":
-    # nodes = [30,50,70,100,200,300,400,500,600,700] #
+    # nodes = [20,50,70,100,200,500,700,1000] #
     # for i in nodes:
     #     print(">>>>>>>>>>>>nodes<<<<<<<<<<<<<:",i)
     #     test_3(i)
 
-    # nodes = [30,50,70,100,300,500,700,1000]
-    nodes = [700]
+    nodes = [500,700,1000] # [20,50,70,100,200]
+    # nodes = [50]
     for i in nodes:
         print(">>>>>>>>>>>>nodes<<<<<<<<<<<<<:",i)
         main(i,1)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
