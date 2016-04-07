@@ -23,18 +23,33 @@ class CustomTopo(Topo):
             switch_name = 's'+str(switch+1)
             switches.append(self.addSwitch(switch_name))
 
-        hosts.append(self.addHost('h1',mac='00:00:00:00:00:01'))
-        hosts.append(self.addHost('h2',mac='00:00:00:00:00:02'))
-
-        for count in range(self.switch_num): #
-            if count == self.switch_num - 1:
-                delay = random.randint(1,1)
-                self.addLink(switches[0],hosts[0],delay=str(delay)+"ms",bw=100) #
-                delay = random.randint(1,1)
-                self.addLink(switches[self.switch_num-1],hosts[1],delay=str(delay)+"ms",bw=100) #
+        for host in range(self.switch_num):
+            host_name = 'h'+str(host+1)
+            if host != 15:
+                host_mac = '00:00:00:00:00:0'+hex(host+1)[-1]
             else:
-                delay = random.randint(1,1)
-                self.addLink(switches[count],switches[count+1],delay=str(delay)+"ms",bw=500) #,delay=str(delay)+"ms"
+                host_mac = '00:00:00:00:00:10'
+            hosts.append(self.addHost(host_name,mac=host_mac))
+
+        # hosts.append(self.addHost('h1',mac='00:00:00:00:00:01'))
+        # hosts.append(self.addHost('h2',mac='00:00:00:00:00:02'))
+
+        self.addLink(switches[0],hosts[0],delay=str(1)+"ms",bw=100)
+        for i in range(self.switch_num-1):
+            delay = random.randint(1,1)
+            self.addLink(switches[i],switches[i+1],delay=str(delay)+"ms",bw=500)
+            delay = random.randint(1,1)
+            self.addLink(switches[i+1],hosts[i+1],delay=str(delay)+"ms",bw=100)
+
+        # for count in range(self.switch_num): #
+        #     if count == self.switch_num - 1:
+        #         delay = random.randint(1,1)
+        #         self.addLink(switches[0],hosts[0],delay=str(delay)+"ms",bw=100) #
+        #         delay = random.randint(1,1)
+        #         self.addLink(switches[self.switch_num-1],hosts[1],delay=str(delay)+"ms",bw=100) #
+        #     else:
+        #         delay = random.randint(1,1)
+        #         self.addLink(switches[count],switches[count+1],delay=str(delay)+"ms",bw=500) #,delay=str(delay)+"ms"
 
 
 #  create a custom switch extends OVSSwitch
@@ -58,7 +73,7 @@ def main(n_switches, count_ping):
                   cleanup=True)
     net.addController( controller=RemoteController,
                        ip=CONTROLLER_IP,
-                       port=CONTROLLER_PORT,t=100)
+                       port=CONTROLLER_PORT)
 
     net.start()
     # time.sleep(10)
@@ -86,4 +101,4 @@ if __name__ == '__main__':
     if os.getuid() != 0:
         logging.debug("You are NOT root")
     else:
-        main(10,5)
+        main(16,5)

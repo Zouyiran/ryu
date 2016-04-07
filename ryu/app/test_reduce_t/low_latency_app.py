@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import copy
+import networkx as nx
 
 from ryu.base import app_manager
 from ryu.lib import hub
@@ -65,6 +66,7 @@ class HLApp(app_manager.RyuApp):
                 self.routeCalculator.path_table = self.routeCalculator.get_path_table(
                                                     self.network_monitor.adjacency_matrix,
                                                     self.network_monitor.dpids_to_access_port)
+                self.routeCalculator.show_path_table()
                 if self.routeCalculator.pre_path_table != self.routeCalculator.path_table:
                     self.logger.info('------path_table CHANGED-------')
                     self.pathPreInstall.setup_mpls_path(self.routeCalculator.pre_path_table,
@@ -118,10 +120,27 @@ class HLApp(app_manager.RyuApp):
             self.network_monitor.dpid_ip_to_port[dpid][arp_src_ip] = in_port
             if arp_dst_ip in self.network_monitor.dpid_ip_to_port[dpid]:
                 out_port = self.network_monitor.dpid_ip_to_port[dpid][arp_dst_ip]
+                data = msg.data
+                self.commandSender.packet_out(datapath, in_port, out_port, data)
             else:
-                out_port = ofproto.OFPP_FLOOD
-            data = msg.data
-            self.commandSender.packet_out(datapath, in_port, out_port, data)
+                pre_dpid = None
+                for pair in self.network_monitor.links_dpid_to_port.keys():
+                    if self.network_monitor.links_dpid_to_port[pair][1] == in_port:
+                        pre_dpid = pair[0]
+                if pre_dpid:
+                    tree = self.network_monitor.get_tree()
+                    neighbor = tree.adj[dpid].keys()
+                    for k in neighbor:
+                        if k != pre_dpid:
+                            out_port = self.network_monitor.links_dpid_to_port[(dpid, k)][0]
+                            data = msg.data
+                            self.commandSender.packet_out(datapath, in_port, out_port, data)
+                    if dpid in self.network_monitor.dpids_to_access_port.keys():
+                        access_ports = self.network_monitor.dpids_to_access_port[dpid]
+                        if len(access_ports) > 0:
+                            for out_port in access_ports:
+                                data = msg.data
+                                self.commandSender.packet_out(datapath, in_port, out_port, data)
             self.__register_access_info(dpid, arp_src_ip, in_port)
 
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
@@ -187,8 +206,15 @@ class HLApp(app_manager.RyuApp):
                                     pack = self.__add_mpls(pkt, label, src_mac, dst_mac)
                                     pack.serialize()
                                     data = pack.data
-                                    self.__add_last(traffic[-1], dst_out_port, label)
+                                    # self.__add_last(traffic[-1], dst_out_port, label)
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
+                    elif dpid == dst_dpid:
+                        print("unpack mpls dpid on traffic[-1]:",dpid)
+                        out_port = dst_out_port
+                        pack = self.__remove_mpls(pkt, src_mac, dst_mac)
+                        pack.serialize()
+                        data = pack.data
+                        self.commandSender.packet_out(datapath, in_port, out_port, data)
                     return
 
                 if isinstance(tcp_pkt,tcp.tcp):
@@ -232,6 +258,7 @@ class HLApp(app_manager.RyuApp):
                                     pack = self.__add_mpls(pkt, label, src_mac, dst_mac)
                                     pack.serialize()
                                     data = pack.data
+                                    print(traffic)
                                     # self.__add_last(traffic[-1], dst_out_port, label)
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
                                     self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)

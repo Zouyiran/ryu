@@ -112,10 +112,27 @@ class HLApp(app_manager.RyuApp):
             self.network_monitor.dpid_ip_to_port[dpid][arp_src_ip] = in_port
             if arp_dst_ip in self.network_monitor.dpid_ip_to_port[dpid]:
                 out_port = self.network_monitor.dpid_ip_to_port[dpid][arp_dst_ip]
+                data = msg.data
+                self.commandSender.packet_out(datapath, in_port, out_port, data)
             else:
-                out_port = ofproto.OFPP_FLOOD
-            data = msg.data
-            self.commandSender.packet_out(datapath, in_port, out_port, data)
+                pre_dpid = None
+                for pair in self.network_monitor.links_dpid_to_port.keys():
+                    if self.network_monitor.links_dpid_to_port[pair][1] == in_port:
+                        pre_dpid = pair[0]
+                if pre_dpid:
+                    tree = self.network_monitor.get_tree()
+                    neighbor = tree.adj[dpid].keys()
+                    for k in neighbor:
+                        if k != pre_dpid:
+                            out_port = self.network_monitor.links_dpid_to_port[(dpid, k)][0]
+                            data = msg.data
+                            self.commandSender.packet_out(datapath, in_port, out_port, data)
+                    if dpid in self.network_monitor.dpids_to_access_port.keys():
+                        access_ports = self.network_monitor.dpids_to_access_port[dpid]
+                        if len(access_ports) > 0:
+                            for out_port in access_ports:
+                                data = msg.data
+                                self.commandSender.packet_out(datapath, in_port, out_port, data)
             self.__register_access_info(dpid, arp_src_ip, in_port)
 
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
@@ -225,6 +242,7 @@ class HLApp(app_manager.RyuApp):
                         data = pack.data
                         self.commandSender.packet_out(datapath, in_port, out_port, data)
                     return
+
     def _get_mpls_label(self,traffic):
         for label in self.pathPreInstall.mpls_to_path.keys():
             if self.pathPreInstall.mpls_to_path[label] == traffic:

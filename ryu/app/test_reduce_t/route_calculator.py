@@ -80,7 +80,7 @@ class RouteCalculator(object):
 
 
 #---------------------Print_to_debug------------------------
-    def _show_path_table(self):
+    def show_path_table(self):
         print "---------------------path_table---------------------"
         for pair in self.path_table.keys():
             print("pair:",pair)

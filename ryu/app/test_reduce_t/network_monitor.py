@@ -161,6 +161,15 @@ class NetworkMonitor(app_manager.RyuApp):
                     graph[src][dst] = 1
         return graph
 
+    def get_tree(self):
+        g = nx.Graph()
+        for i in self.adjacency_matrix:
+            for j in self.adjacency_matrix[i]:
+                if self.adjacency_matrix[i][j] == 1:
+                    g.add_edge(i, j)
+        tree = nx.minimum_spanning_tree(g)
+        return tree
+
 #---------------------Print_to_debug------------------------
     def _show_matrix(self):
         switch_num = len(self.adjacency_matrix)
