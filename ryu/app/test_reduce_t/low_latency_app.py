@@ -50,9 +50,24 @@ class HLApp(app_manager.RyuApp):
 
         self.DISCOVER_PERIOD = 3
         self.COLLECTOR_PERIOD = 5
+        self.FLOW_COUNT = 1
 
         self.network_monitor_thread = hub.spawn(self._monitor)
         # self.flow_collector_thread = hub.spawn(self._collector)
+        hub.spawn(self._flow_count)
+
+    def _flow_count(self):
+        while True:
+            hub.sleep(self.DISCOVER_PERIOD)
+            total = 0
+            for dpid in self.network_monitor.dpids:
+                res = self.commandSender.get_aggr_flow(dpid).json()
+                count = res[str(dpid)][0]['flow_count']
+                count = int(count)
+                total += count
+            file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/flow_count.txt','a')
+            file.write('flow_count:'+str(total)+'\n')
+            file.close()
 
     # context
     def _monitor(self):
@@ -66,7 +81,10 @@ class HLApp(app_manager.RyuApp):
                 self.routeCalculator.path_table = self.routeCalculator.get_path_table(
                                                     self.network_monitor.adjacency_matrix,
                                                     self.network_monitor.dpids_to_access_port)
-                self.routeCalculator.show_path_table()
+                self.routeCalculator.pre_route_table = copy.deepcopy(self.routeCalculator.route_table)
+                self.routeCalculator.route_table = self.routeCalculator.get_route_table(
+                                                    self.network_monitor.adjacency_matrix,
+                                                    self.network_monitor.dpids_to_access_port)
                 if self.routeCalculator.pre_path_table != self.routeCalculator.path_table:
                     self.logger.info('------path_table CHANGED-------')
                     self.pathPreInstall.setup_mpls_path(self.routeCalculator.pre_path_table,
@@ -185,29 +203,26 @@ class HLApp(app_manager.RyuApp):
                                 self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
                         else:
                             print("src_dpid != dst_dpid",src_dpid,dst_dpid)
-                            traffic = self.routeCalculator.get_traffic(src_dpid, dst_dpid)
-                            if traffic:
+                            path = self.routeCalculator.get_path(src_dpid, dst_dpid) # for 1st packet
+                            route = self.routeCalculator.get_route(src_dpid, dst_dpid) # for follow-up packet
+                            if route:
                                 # NO need to mpls
-                                if len(traffic) == 2:
-                                    self.install_flow(traffic,dst_ip,src_in_port,dst_out_port)
-                                    self.install_flow(traffic[::-1],src_ip,dst_out_port,src_in_port)
-                                    out_port = self.network_monitor.links_dpid_to_port[(traffic[0],traffic[1])][0]
+                                if len(path) <= 2:
+                                    self.install_flow(route,dst_ip,src_in_port,dst_out_port)
+                                    # self.install_flow(route[::-1],src_ip,dst_out_port,src_in_port)
+                                    out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
                                     data = msg.data
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
                                 # need to mpls
-                                elif len(traffic) > 2:
-                                    print("traffic length:",len(traffic))
+                                elif len(path) > 2:
                                     print("pack mpls dpid on traffic[0]:",dpid)
-                                    print(traffic)
-                                    self.install_flow(traffic,dst_ip,src_in_port,dst_out_port)
-                                    self.install_flow(traffic[::-1],src_ip,dst_out_port,src_in_port)
-                                    out_port = self.network_monitor.links_dpid_to_port[(traffic[0],traffic[1])][0]
-                                    label = self._get_mpls_label(traffic)
+                                    out_port = self.network_monitor.links_dpid_to_port[(path[0],path[1])][0]
+                                    label = self._get_mpls_label(path)
                                     pack = self.__add_mpls(pkt, label, src_mac, dst_mac)
                                     pack.serialize()
                                     data = pack.data
-                                    # self.__add_last(traffic[-1], dst_out_port, label)
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
+                                    self.install_flow(route,dst_ip,src_in_port,dst_out_port)
                     elif dpid == dst_dpid:
                         print("unpack mpls dpid on traffic[-1]:",dpid)
                         out_port = dst_out_port
@@ -218,12 +233,15 @@ class HLApp(app_manager.RyuApp):
                     return
 
                 if isinstance(tcp_pkt,tcp.tcp):
-                    print("----tcp-------")
+                    print("------tcp-----------")
                     src_tcp = tcp_pkt.src_port
                     dst_tcp = tcp_pkt.dst_port
                     if dpid == src_dpid: # packet_in
+                        file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/fattree_record.txt','a')
                         if src_dpid == dst_dpid:
                             print("src_dpid == dst_dpid")
+                            file.write('----->'+'host_src:'+str(src_ip)+'->'+'host_dst:'+str(dst_ip)+'--'+
+                                       'src_dpid:'+str(src_dpid)+' dst_dpid:'+str(dst_dpid)+'\n')
                             priority = OFP_DEFAULT_PRIORITY
                             match = {
                                 "dl_type":ether_types.ETH_TYPE_IP,
@@ -243,25 +261,28 @@ class HLApp(app_manager.RyuApp):
                                 self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
                         else:
                             print("src_dpid != dst_dpid")
-                            traffic = self.routeCalculator.get_traffic(src_dpid, dst_dpid) # for 1st packet
+                            file.write('----->'+'host_src:'+str(src_ip)+'->'+'host_dst:'+str(dst_ip)+'--'+
+                                       'src_dpid:'+str(src_dpid)+' dst_dpid:'+str(dst_dpid)+'\n')
+                            path = self.routeCalculator.get_path(src_dpid, dst_dpid) # for 1st packet
                             route = self.routeCalculator.get_route(src_dpid, dst_dpid) # for follow-up packet
-                            if traffic:
-                                if len(traffic) == 2:
+                            file.write('traffic'+str(path)+'\n')
+                            file.write('route'+str(route)+'\n')
+                            if route:
+                                if len(path) <= 2: # 4
                                     self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
                                     data = msg.data
                                     out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
-                                elif len(traffic) > 2:
+                                elif len(path) > 2: # 4
                                     print("pack mpls dpid on traffic[0]:",dpid)
-                                    out_port = self.network_monitor.links_dpid_to_port[(traffic[0],traffic[1])][0]
-                                    label = self._get_mpls_label(traffic)
+                                    out_port = self.network_monitor.links_dpid_to_port[(path[0],path[1])][0]
+                                    label = self._get_mpls_label(path)
                                     pack = self.__add_mpls(pkt, label, src_mac, dst_mac)
                                     pack.serialize()
                                     data = pack.data
-                                    print(traffic)
-                                    # self.__add_last(traffic[-1], dst_out_port, label)
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
                                     self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
+                        file.close()
                     elif dpid == dst_dpid:
                         print("unpack mpls dpid on traffic[-1]:",dpid)
                         out_port = dst_out_port

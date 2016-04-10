@@ -9,7 +9,7 @@ from mininet.node import  OVSSwitch
 from mininet.net import Mininet
 from mininet.link import TCLink
 from mininet.util import dumpNodeConnections
-from mininet.node import RemoteController
+from mininet.node import RemoteController,Host
 from mininet.cli import CLI
 
 # topo = fnss.waxman_1_topology(n=50,alpha=0.6,beta=0.3)
@@ -26,27 +26,60 @@ CONTROLLER_IP = "127.0.0.1"
 CONTROLLER_PORT = 6633
 
 def main():
-    # topo = fnss.two_tier_topology(2,4,2)
-    topo = fnss.fat_tree_topology(4)
-    fnss.set_weights_constant(topo,1)
-    fnss.set_delays_constant(topo, 1, 'ms')
-    fnss.set_capacities_edge_betweenness(topo,[10,100,1000],'Mbps')
-    fnss.write_topology(topo,'topo.xml')
+    # topo = fnss.fat_tree_topology(4) #topo = fnss.waxman_1_topology(n=50,alpha=0.6,beta=0.3)
+    # fnss.set_weights_constant(topo,1)
+    # fnss.set_delays_constant(topo, 1, 'ms')
+    # fnss.set_capacities_edge_betweenness(topo,[10,100,1000],'Mbps')
+    # fnss.write_topology(topo,'topo_ft.xml')
 
+    # nodes_label = nx.get_node_attributes(topo,'layer')
+    # print nodes_label
+    # label_simple = dict()
+    # for each in nodes_label:
+    #     if nodes_label[each] == 'leaf':
+    #         label_simple[each] = 'H'
+    #     elif nodes_label[each] == 'edge':
+    #         label_simple[each] = 'E'
+    #     elif nodes_label[each] == 'aggregation':
+    #         label_simple[each] = 'A'
+    #     else:
+    #         label_simple[each] = 'C'
+    #         # label_simple[each] = nodes_label[each][0]
+    # nx.draw(topo,labels=label_simple,node_color='w',pos=nx.spring_layout(topo),node_size=400,label_size=16)
+    # plt.show()
 
-    nodes_label = nx.get_node_attributes(topo,'type')
-    label_simple = dict()
-    for each in nodes_label:
-        label_simple[each] = nodes_label[each][0]
-    nx.draw(topo,labels=label_simple, pos=nx.spring_layout(topo))
-    # nx.draw_networkx_labels(topo,labels=label_simple,pos=nx.spring_layout(topo))
-    plt.show()
+    # topo = nx.powerlaw_cluster_graph(50,2,0.08)
+    # nodes = topo.nodes()
+    # labels = dict()
+    # for i in nodes:
+    #     neighbors = topo.adj[i]
+    #     if len(neighbors) == 2:
+    #         labels[i] ='E'
+    #     else:
+    #         labels[i] ='S'
+    # fnss.set_weights_constant(topo,1)
+    # fnss.set_delays_constant(topo, 1, 'ms')
+    # fnss.set_capacities_edge_betweenness(topo,[10,100,1000],'Mbps')
+    # fnss.write_topology(topo,'topo_2.xml')
+    # nx.draw(topo, labels=labels, node_color='w',pos=nx.spring_layout(topo),node_size=400)
+    # plt.show()
 
     topo = fnss.read_topology('topo.xml') # return fnss.Topology
-    # nx.draw(topo)
-    # plt.savefig('fattree.png')
-    # plt.show()
+    nodes = topo.nodes()
+    access_nodes = list()
+    for i in nodes:
+        topo.add_node(i,{'type':'switch'})
+        neighbors = topo.adj[i]
+        if len(neighbors) == 2:
+            access_nodes.append(i)
+    print access_nodes
     mn_topo = fnss.to_mininet(topo,relabel_nodes=True)
+    count = 0
+    for i in access_nodes:
+        count += 1
+        name = 'h'+str(count)
+        mn_topo.addHost(name=name) # self, name, cls=None, **params
+        mn_topo.addLink(node1=name,node2='s'+str(i),bw=10) # self, node1, node2, port1=None, port2=None, cls=None, **params
     net = Mininet(topo=mn_topo,
                   link=TCLink,
                   switch=CustomSwitch,
@@ -55,6 +88,7 @@ def main():
     net.addController( controller=RemoteController,
                        ip=CONTROLLER_IP,
                        port=CONTROLLER_PORT)
+
     net.start()
     CLI(net)
     net.stop()

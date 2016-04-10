@@ -205,3 +205,25 @@ class CommandSender(object):
         response = requests.get(url=self.IP+uri)
         return response
 
+    def get_aggr_flow(self, dpid):
+        '''
+        # get aggregate flows stats of the switch
+        # GET /stats/aggregateflow/<dpid>
+        :param dpid:
+        :return:
+        {
+          "5": [
+            {
+              "packet_count": 404,
+              "byte_count": 31828,
+              "flow_count": 26
+            }
+          ]
+        }
+        '''
+        uri = "/stats/aggregateflow/" + str(dpid)
+        response = requests.get(url=self.IP+uri)
+        return response
+
+
+

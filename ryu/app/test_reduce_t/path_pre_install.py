@@ -40,8 +40,7 @@ class PathPreInstall(object):
             self.LABEL_RECYCLE.clear()
             for path_pair in path_table.keys():
                 path = path_table[path_pair]
-                nodes_num = len(path)
-                if nodes_num > 2:
+                if len(path) > 0:
                     self.mpls_to_path[self.LABEL] = path
                     self.LABEL_BE_USED.add(self.LABEL) # record its mpls label
                     self.__add_flow(path,self.LABEL, network_monitor)
@@ -60,8 +59,7 @@ class PathPreInstall(object):
                     delete_path_table[dpid_pair] = pre_path_table[dpid_pair]
             for dpid_pair in delete_path_table:
                 path = delete_path_table[dpid_pair]
-                nodes_num = len(path)
-                if nodes_num > 2:
+                if len(path) > 0:
                     for label in self.mpls_to_path:
                         if self.mpls_to_path[label] == path:
                             self.LABEL_BE_USED.remove(label)
@@ -77,8 +75,7 @@ class PathPreInstall(object):
                      add_path_table[dpid_pair] = path_table[dpid_pair]
             for dpid_pair in add_path_table:
                 path = add_path_table[dpid_pair]
-                nodes_num = len(path)
-                if nodes_num > 2:
+                if len(path) > 0:
                     if self.LABEL_RECYCLE:
                         label = self.LABEL_RECYCLE.pop()
                         self.mpls_to_path[label] = path
