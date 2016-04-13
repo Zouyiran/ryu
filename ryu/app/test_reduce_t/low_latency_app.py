@@ -268,12 +268,12 @@ class HLApp(app_manager.RyuApp):
                             file.write('traffic'+str(path)+'\n')
                             file.write('route'+str(route)+'\n')
                             if route:
-                                if len(path) <= 2: # 4
+                                if len(path) <= 4: # 4
                                     self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
                                     data = msg.data
                                     out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
-                                elif len(path) > 2: # 4
+                                elif len(path) > 4: # 4
                                     print("pack mpls dpid on traffic[0]:",dpid)
                                     out_port = self.network_monitor.links_dpid_to_port[(path[0],path[1])][0]
                                     label = self._get_mpls_label(path)

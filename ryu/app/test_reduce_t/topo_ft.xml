@@ -343,7 +343,7 @@
     <from type="int">6</from>
     <to type="int">20</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -351,7 +351,7 @@
     <from type="int">6</from>
     <to type="int">21</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -359,7 +359,7 @@
     <from type="int">7</from>
     <to type="int">22</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -367,7 +367,7 @@
     <from type="int">7</from>
     <to type="int">23</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -407,7 +407,7 @@
     <from type="int">10</from>
     <to type="int">24</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -415,7 +415,7 @@
     <from type="int">10</from>
     <to type="int">25</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -423,7 +423,7 @@
     <from type="int">11</from>
     <to type="int">26</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -431,7 +431,7 @@
     <from type="int">11</from>
     <to type="int">27</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -471,7 +471,7 @@
     <from type="int">14</from>
     <to type="int">28</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -479,7 +479,7 @@
     <from type="int">14</from>
     <to type="int">29</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -487,7 +487,7 @@
     <from type="int">15</from>
     <to type="int">30</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -495,7 +495,7 @@
     <from type="int">15</from>
     <to type="int">31</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -535,7 +535,7 @@
     <from type="int">18</from>
     <to type="int">33</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -543,7 +543,7 @@
     <from type="int">18</from>
     <to type="int">32</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -551,7 +551,7 @@
     <from type="int">19</from>
     <to type="int">34</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>
@@ -559,7 +559,7 @@
     <from type="int">19</from>
     <to type="int">35</to>
     <property name="delay" type="int">1</property>
-    <property name="capacity" type="int">10</property>
+    <property name="capacity" type="int">100</property>
     <property name="type" type="string">edge_leaf</property>
     <property name="weight" type="int">1</property>
   </link>

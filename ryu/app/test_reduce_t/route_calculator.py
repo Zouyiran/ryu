@@ -59,7 +59,7 @@ class RouteCalculator(object):
                     path = []
                     try:
                         temp = nx.shortest_path(g,i,j)
-                        if len(temp) > 2: # 4 at least src-->node-->node-->node-->dst
+                        if len(temp) > 4: # 4
                             path = temp
                     except nx.exception.NetworkXNoPath:
                         pass

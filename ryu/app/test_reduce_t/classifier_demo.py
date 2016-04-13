@@ -106,11 +106,11 @@ for (k, (C, gamma, clf)) in enumerate(classifiers):
     # visualize decision function for these parameters
     plt.subplot(len(C_2d_range), len(gamma_2d_range), k + 1)
     plt.title("gamma=10^%d, C=10^%d" % (np.log10(gamma), np.log10(C)),
-              size='medium')
+              size='large')
 
     # visualize parameter's effect on decision function
-    plt.pcolormesh(xx, yy, -Z, cmap=plt.cm.coolwarm)
-    plt.scatter(X_2d[:, 0], X_2d[:, 1], c=y_2d, cmap=plt.cm.coolwarm_r)
+    plt.pcolormesh(xx, yy, -Z, cmap=plt.cm.gray)
+    plt.scatter(X_2d[:, 0], X_2d[:, 1], c=y_2d[::-1],edgecolors='black',s=60, cmap=plt.cm.gray)
     plt.xticks(())
     plt.yticks(())
     plt.axis('tight')
@@ -132,12 +132,11 @@ scores = np.array(scores).reshape(len(C_range), len(gamma_range))
 
 plt.figure(figsize=(8, 6))
 plt.subplots_adjust(left=.2, right=0.95, bottom=0.15, top=0.95)
-plt.imshow(scores, interpolation='nearest', cmap=plt.cm.hot,
+plt.imshow(scores, interpolation='nearest', cmap=plt.cm.gray,
            norm=MidpointNormalize(vmin=0.2, midpoint=0.92))
-plt.xlabel('gamma')
-plt.ylabel('C')
+plt.xlabel('gamma',fontsize=16)
+plt.ylabel('C',fontsize=16)
 plt.colorbar()
-plt.xticks(np.arange(len(gamma_range)), gamma_range, rotation=45)
-plt.yticks(np.arange(len(C_range)), C_range)
-plt.title('Validation accuracy')
+plt.xticks(np.arange(len(gamma_range)), gamma_range, rotation=45,fontsize=16)
+plt.yticks(np.arange(len(C_range)), C_range,fontsize=16)
 plt.show()

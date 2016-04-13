@@ -34,6 +34,10 @@ class PathPreInstall(object):
 
         print("...................pre-install flow..................")
         if len(pre_path_table) == 0 and len(path_table) != 0: # initial
+            # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/path_table.txt','a')
+            # file.write(str(path_table)+'\n')
+            # file.write('\n')
+            # file.close()
             print("...................network initial..................")
             self.LABEL = 0
             self.LABEL_BE_USED.clear()
