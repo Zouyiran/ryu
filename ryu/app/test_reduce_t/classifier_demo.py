@@ -61,7 +61,6 @@ y_2d -= 1
 scaler = StandardScaler()
 X = scaler.fit_transform(X)
 X_2d = scaler.fit_transform(X_2d)
-
 ##############################################################################
 # Train classifiers
 #

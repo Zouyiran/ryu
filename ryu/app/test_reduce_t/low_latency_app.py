@@ -54,7 +54,7 @@ class HLApp(app_manager.RyuApp):
 
         self.network_monitor_thread = hub.spawn(self._monitor)
         # self.flow_collector_thread = hub.spawn(self._collector)
-        hub.spawn(self._flow_count)
+        # hub.spawn(self._flow_count)
 
     def _flow_count(self):
         while True:

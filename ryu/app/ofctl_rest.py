@@ -72,7 +72,8 @@ supported_ofctl = {
 # GET /stats/tablefeatures/<dpid>
 #
 # get ports stats of the switch
-# GET /stats/port/<dpid>
+# GET /s
+# tats/port/<dpid>
 #
 # get queues stats of the switch
 # GET /stats/queue/<dpid>
