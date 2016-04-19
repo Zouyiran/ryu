@@ -128,6 +128,7 @@ class HLApp(app_manager.RyuApp):
 
                 icmp_pkt = pkt.get_protocol(icmp.icmp)
                 tcp_pkt = pkt.get_protocol(tcp.tcp)
+                udp_pkt = pkt.get_protocol(udp.udp)
 
                 if isinstance(icmp_pkt,icmp.icmp):
                     print("----icmp-------")
@@ -167,21 +168,21 @@ class HLApp(app_manager.RyuApp):
                         if src_dpid == dst_dpid:
                             print("src_dpid == dst_dpid")
                             priority = OFP_DEFAULT_PRIORITY
-                            # match = {
-                            #     "dl_type":ether_types.ETH_TYPE_IP,
-                            #     "nw_proto":6,
-                            #     "in_port":in_port,
-                            #     "nw_src":src_ip,
-                            #     "nw_dst":dst_ip,
-                            #     "tp_src":src_tcp,
-                            #     "tp_dst":dst_tcp
-                            #         }
                             match = {
-                                    "dl_type":ether_types.ETH_TYPE_IP,
-                                    "in_port":in_port,
-                                    "nw_src":src_ip,
-                                    "nw_dst":dst_ip,
+                                "dl_type":ether_types.ETH_TYPE_IP,
+                                "nw_proto":6,
+                                "in_port":in_port,
+                                "nw_src":src_ip,
+                                "nw_dst":dst_ip,
+                                "tcp_src":src_tcp,
+                                "tcp_dst":dst_tcp
                                     }
+                            # match = {
+                            #         "dl_type":ether_types.ETH_TYPE_IP,
+                            #         "in_port":in_port,
+                            #         "nw_src":src_ip,
+                            #         "nw_dst":dst_ip,
+                            #         }
                             actions = [{"type":"OUTPUT","port":dst_out_port}]
                             if buffer_id != ofproto.OFP_NO_BUFFER:
                                 self.commandSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id, 10)
@@ -193,8 +194,49 @@ class HLApp(app_manager.RyuApp):
                             print("src_dpid != dst_dpid")
                             route = self.routeCalculator.get_route(src_dpid, dst_dpid)
                             if route:
-                                self.install_flow(route,dst_ip,src_in_port,dst_out_port)
-                                # self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
+                                # self.install_flow(route,dst_ip,src_in_port,dst_out_port)
+                                self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
+                                data = msg.data
+                                out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
+                                self.commandSender.packet_out(datapath, in_port, out_port, data)
+                    return
+
+                if isinstance(udp_pkt,udp.udp):
+                    print("----udp-------")
+                    src_udp = udp_pkt.src_port
+                    dst_udp = udp_pkt.dst_port
+                    if dpid == src_dpid:
+                        if src_dpid == dst_dpid:
+                            print("src_dpid == dst_dpid")
+                            priority = OFP_DEFAULT_PRIORITY
+                            match = {
+                                "dl_type":ether_types.ETH_TYPE_IP,
+                                "nw_proto":17,
+                                "in_port":in_port,
+                                "nw_src":src_ip,
+                                "nw_dst":dst_ip,
+                                "udp_src":src_udp,
+                                "udp_dst":dst_udp,
+                                    }
+                            # match = {
+                            #         "dl_type":ether_types.ETH_TYPE_IP,
+                            #         "in_port":in_port,
+                            #         "nw_src":src_ip,
+                            #         "nw_dst":dst_ip,
+                            #         }
+                            actions = [{"type":"OUTPUT","port":dst_out_port}]
+                            if buffer_id != ofproto.OFP_NO_BUFFER:
+                                self.commandSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id, 10)
+                            else:
+                                self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 10)
+                                data = msg.data
+                                self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
+                        else:
+                            print("src_dpid != dst_dpid")
+                            route = self.routeCalculator.get_route(src_dpid, dst_dpid)
+                            if route:
+                                # self.install_flow(route,dst_ip,src_in_port,dst_out_port)
+                                self.install_flow_udp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_udp, dst_udp)
                                 data = msg.data
                                 out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
                                 self.commandSender.packet_out(datapath, in_port, out_port, data)
@@ -260,11 +302,11 @@ class HLApp(app_manager.RyuApp):
                         "in_port":in_port,
                         "nw_src":src_ip,
                         "nw_dst":dst_ip,
-                        "tp_src":src_tcp,
-                        "tp_dst":dst_tcp
+                        "tcp_src":src_tcp,
+                        "tcp_dst":dst_tcp
                         }
                 actions = [{"type":"OUTPUT","port":out_port}]
-                self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 100)
+                self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 10)
 
     #4 layer
     def install_flow_udp(self, traffic, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp):
@@ -286,12 +328,12 @@ class HLApp(app_manager.RyuApp):
                     out_port = self.network_monitor.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
                 match = {
                         "dl_type":ether_types.ETH_TYPE_IP,
-                        "nw_proto":6,
+                        "nw_proto":17,
                         "in_port":in_port,
                         "nw_src":src_ip,
                         "nw_dst":dst_ip,
-                        "up_src":src_tcp,
-                        "up_dst":dst_tcp
+                        "udp_src":src_tcp,
+                        "udp_dst":dst_tcp
                         }
                 actions = [{"type":"OUTPUT","port":out_port}]
-                self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 100)
+                self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 10)

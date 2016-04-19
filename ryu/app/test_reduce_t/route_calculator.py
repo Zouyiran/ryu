@@ -59,12 +59,12 @@ class RouteCalculator(object):
                     path = []
                     try:
                         temp = nx.shortest_path(g,i,j)
-                        if len(temp) > 4: # 4
+                        if len(temp) > 4: # 2
                             path = temp
                     except nx.exception.NetworkXNoPath:
                         pass
                     path_table[(i,j)] = path
-        return path_table # just return shortest path between edge_switches
+        return path_table
 
     def get_route_table(self, matrix, dpids_to_access_port):
         if matrix:

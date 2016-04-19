@@ -19,7 +19,7 @@ class FlowCollector(app_manager.RyuApp):
         self.flowSender = CommandSender.get_instance()
 
         self.dpids = []
-        self.dpid_to_flow = dict() # {dpid:[Flow,Flow,Flow,...],dpid:[Flow,Flow,Flow,...],...}
+        self.dpid_to_flow = dict() # {dpid:[{},{},{},...],dpid:[{},{},{]...],...}
 
 
     # not used
@@ -36,44 +36,23 @@ class FlowCollector(app_manager.RyuApp):
         for each_flow in stats_flow:
             if each_flow["actions"] == ["OUTPUT:CONTROLLER"]:
                 continue
-            if each_flow["match"].has_key("mpls_label"):
+            match = each_flow["match"]
+            if match.has_key("mpls_label"):
                 continue
-            flow = Flow()
-            flow.idle_timeout = each_flow["idle_timeout"]
-            flow.packet_count = each_flow["packet_count"]
-            flow.byte_count = each_flow["byte_count"]
-            flow.duration_sec = each_flow["duration_sec"]
-            if each_flow.has_key("src_ip"):
-                flow.src_ip = each_flow["src_ip"]
-            if each_flow.has_key("dst_ip"):
-                flow.dst_ip = each_flow["dst_ip"]
-            if each_flow.has_key("src_tcp"):
-                flow.src_tcp = each_flow["src_tcp"]
-            if each_flow.has_key("dst_tcp"):
-                flow.dst_tcp = each_flow["dst_tcp"]
+            flow = dict()
+            flow["idle_timeout"] = each_flow["idle_timeout"]
+            flow["packet_count"] = each_flow["packet_count"]
+            flow["byte_count"] = each_flow["byte_count"]
+            flow["duration_sec"] = each_flow["duration_sec"]
+            if match.has_key("nw_src"):
+                flow["nw_src"] = match["nw_src"]
+            if match.has_key("nw_dst"):
+                flow["nw_dst"] = match["nw_dst"]
             flow_list.append(flow)
         return flow_list
 
-    def print_dpid_to_flow(self):
+    def print_stats(self):
         for each_dpid in self.dpid_to_flow:
-            print("------------------------")
-            print "dpid:"+ str(each_dpid)
-            print "flows packet_count:"
-            for each_flow in self.dpid_to_flow[each_dpid]:
-                print each_flow.packet_count
-
-class Flow(object):
-    def __init__(self):
-        super(Flow, self).__init__()
-        self.idle_timeout = 0
-        self.packet_count = 0
-        self.byte_count = 0
-        self.duration_sec = 0
-        self.src_ip = ""
-        self.dst_ip = ""
-        self.src_tcp = ""
-        self.dst_tcp = ""
-
-
-
-
+            print("----------print_flow_collect_stats--------------")
+            print "dpid:" + str(each_dpid)
+            print "flow_num:" + str(len(self.dpid_to_flow[each_dpid]))

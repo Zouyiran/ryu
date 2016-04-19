@@ -25,31 +25,28 @@ class Flow(object):
 class FlowClassifier(object):
     def __init__(self):
         super(FlowClassifier, self).__init__()
-        self.id_to_sample = dict()
+        self.active_sample = dict()
         self.data = None
         self.target = None
         self.N_FLOW = 500
         self.N_PAKCET = 1000
         self.T_IDLE = 5
 
-    def create_sample(self, dpid_to_flow):
-        id_to_sample = dict() #{dpid:[n_flow, n_packet, t_idle],...}
-        sample = list()
-        for dpid in dpid_to_flow: # each access dpid
-            for flow in dpid_to_flow[dpid]:# each Flow
-                src_ip = flow.src_ip
-                dst_ip = flow.dst_ip
-                id_to_sample.setdefault((src_ip, dst_ip),[0,0,float('inf')]) # initial [n_flow, n_packet, t_idle]
-                id_to_sample[(src_ip,dst_ip)][0] += 1
-                id_to_sample[(src_ip,dst_ip)][1] += flow.packet_count
-                idle = flow.idle_timeout
-                if idle < id_to_sample[(src_ip,dst_ip)][2]:
-                    id_to_sample[(src_ip,dst_ip)][2] = idle
-        for each in id_to_sample:
-            id_to_sample[each][0] /= 2
-            id_to_sample[each][1] /= 2
-            sample.append(id_to_sample[each])
-        return id_to_sample, sample # list
+    def create_sample(self, dpid_to_flow): # {'nw_dst': u'10.0.0.2', 'byte_count': 54, 'duration_sec': 2, 'packet_count': 1, 'idle_timeout': 10, 'nw_src': u'10.0.0.10'},
+        for dpid in dpid_to_flow:
+            for flow in dpid_to_flow[dpid]:
+                src_ip = flow["nw_src"]
+                dst_ip = flow["nw_dst"]
+                self.active_sample.setdefault((src_ip, dst_ip),[0,0,0]) # initial
+                self.active_sample[(src_ip,dst_ip)][0] += 1
+                self.active_sample[(src_ip,dst_ip)][1] += int(flow["packet_count"])
+                duration = int(flow["duration_sec"])
+                if duration > self.active_sample[(src_ip,dst_ip)][2]:
+                    self.active_sample[(src_ip,dst_ip)][2] = duration
+        # for each in self.active_sample:
+        #     self.active_sample[each][0] /= 2.0
+        #     self.active_sample[each][1] /= 2.0
+
 
     def create_target(self, sample):
         target = list()
