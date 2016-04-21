@@ -19,8 +19,10 @@ class FlowCollector(app_manager.RyuApp):
         self.flowSender = CommandSender.get_instance()
 
         self.dpids = []
-        self.dpid_to_flow = dict() # {dpid:[{},{},{},...],dpid:[{},{},{]...],...}
 
+        # {dpid:[{"idle_timeout":...,"packet_count":...,"byte_count":...,},{},{},...],
+        #  dpid:[{},{},{]...],...}
+        self.dpid_to_flow = dict()
 
     # not used
     def request_stats_switches(self):
@@ -34,21 +36,16 @@ class FlowCollector(app_manager.RyuApp):
     def parse_stats_flow(self,stats_flow):
         flow_list = list()
         for each_flow in stats_flow:
-            if each_flow["actions"] == ["OUTPUT:CONTROLLER"]:
-                continue
             match = each_flow["match"]
-            if match.has_key("mpls_label"):
-                continue
-            flow = dict()
-            flow["idle_timeout"] = each_flow["idle_timeout"]
-            flow["packet_count"] = each_flow["packet_count"]
-            flow["byte_count"] = each_flow["byte_count"]
-            flow["duration_sec"] = each_flow["duration_sec"]
-            if match.has_key("nw_src"):
+            if match.has_key("tp_src") or match.has_key("up_src"):
+                flow = dict()
+                flow["idle_timeout"] = each_flow["idle_timeout"]
+                flow["packet_count"] = each_flow["packet_count"]
+                flow["byte_count"] = each_flow["byte_count"]
+                flow["duration_sec"] = each_flow["duration_sec"]
                 flow["nw_src"] = match["nw_src"]
-            if match.has_key("nw_dst"):
                 flow["nw_dst"] = match["nw_dst"]
-            flow_list.append(flow)
+                flow_list.append(flow)
         return flow_list
 
     def print_stats(self):

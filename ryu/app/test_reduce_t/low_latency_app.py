@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import copy
-import networkx as nx
 
 from ryu.base import app_manager
 from ryu.lib import hub
@@ -23,13 +22,6 @@ from path_pre_install import PathPreInstall
 class HLApp(app_manager.RyuApp):
     '''
     hybrid and low latency app
-                    # elif dpid == dst_dpid:
-                    #     print("unpack mpls dpid on traffic[-1]:",dpid)
-                    #     out_port = dst_out_port
-                    #     pack = self.__remove_mpls(pkt, src_mac, dst_mac)
-                    #     pack.serialize()
-                    #     data = pack.data
-                    #     self.commandSender.packet_out(datapath, in_port, out_port, data)
     '''
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
@@ -72,7 +64,6 @@ class HLApp(app_manager.RyuApp):
             file.write('flow_count:'+str(total)+'\n')
             file.close()
 
-    # context
     def _monitor(self):
         while True:
             hub.sleep(self.DISCOVER_PERIOD)
@@ -92,7 +83,7 @@ class HLApp(app_manager.RyuApp):
                     self.logger.info('------path_table CHANGED-------')
                     self.pathPreInstall.setup_mpls_path(self.routeCalculator.pre_path_table,
                                                         self.routeCalculator.path_table, self.network_monitor)
-    # context
+
     def _collector(self):
         while True:
             hub.sleep(self.COLLECTOR_PERIOD)
@@ -104,15 +95,13 @@ class HLApp(app_manager.RyuApp):
                     self.flow_collector.dpid_to_flow.setdefault(dpid, [])
                     stats_flow = self.flow_collector.request_stats_flow(dpid)[str(dpid)]
                     self.flow_collector.dpid_to_flow[dpid] = self.flow_collector.parse_stats_flow(stats_flow)
-            self.flowClassifier.create_sample(self.flow_collector.dpid_to_flow)
+            self.flowClassifier.active_sample = self.flowClassifier.create_sample(self.flow_collector.dpid_to_flow)
             file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/flow_classify.txt','a')
             file.write('\n'+'-------------------flow--classify-------------'+'\n')
             for i in self.flowClassifier.active_sample:
                 file.write(str(i)+'\n')
                 file.write(str(self.flowClassifier.active_sample[i])+'\n')
             file.close()
-
-
 
     # install table-miss flow entry for each switch
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -245,11 +234,11 @@ class HLApp(app_manager.RyuApp):
                     src_tcp = tcp_pkt.src_port
                     dst_tcp = tcp_pkt.dst_port
                     if dpid == src_dpid: # packet_in
-                        file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/fattree_record.txt','a')
+                        # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/fattree_record.txt','a')
                         if src_dpid == dst_dpid:
                             print("src_dpid == dst_dpid")
-                            file.write('----->'+'host_src:'+str(src_ip)+'->'+'host_dst:'+str(dst_ip)+'--'+
-                                       'src_dpid:'+str(src_dpid)+' dst_dpid:'+str(dst_dpid)+'\n')
+                            # file.write('----->'+'host_src:'+str(src_ip)+'->'+'host_dst:'+str(dst_ip)+'--'+
+                            #            'src_dpid:'+str(src_dpid)+' dst_dpid:'+str(dst_dpid)+'\n')
                             priority = OFP_DEFAULT_PRIORITY+10
                             match = {
                                 "dl_type":ether_types.ETH_TYPE_IP,
@@ -269,12 +258,12 @@ class HLApp(app_manager.RyuApp):
                                 self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
                         else:
                             print("src_dpid != dst_dpid")
-                            file.write('----->'+'host_src:'+str(src_ip)+'->'+'host_dst:'+str(dst_ip)+'--'+
-                                       'src_dpid:'+str(src_dpid)+' dst_dpid:'+str(dst_dpid)+'\n')
+                            # file.write('----->'+'host_src:'+str(src_ip)+'->'+'host_dst:'+str(dst_ip)+'--'+
+                            #            'src_dpid:'+str(src_dpid)+' dst_dpid:'+str(dst_dpid)+'\n')
                             path = self.routeCalculator.get_path(src_dpid, dst_dpid) # for 1st packet
                             route = self.routeCalculator.get_route(src_dpid, dst_dpid) # for follow-up packet
-                            file.write('traffic'+str(path)+'\n')
-                            file.write('route'+str(route)+'\n')
+                            # file.write('traffic'+str(path)+'\n')
+                            # file.write('route'+str(route)+'\n')
                             if route:
                                 if len(path) <= 4: # 4
                                     self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
@@ -290,7 +279,7 @@ class HLApp(app_manager.RyuApp):
                                     data = pack.data
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
                                     self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
-                        file.close()
+                        # file.close()
                     elif dpid == dst_dpid:
                         print("unpack mpls dpid on traffic[-1]:",dpid)
                         out_port = dst_out_port
