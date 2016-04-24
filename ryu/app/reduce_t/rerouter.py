@@ -12,8 +12,13 @@ from ryu.ofproto import ofproto_v1_3
 from command_sender import CommandSender
 
 '''
-re-route for elephant flow
-build BIH
+###reduce_t###
+--> re-route for elephant flow
+1) BIH building
+2) re-route(re_route)
+3) direct route(di_route),contrast experiment
+4) topology generation
+
 # get ports stats of the switch
 # GET /stats/port/<dpid>
 {
@@ -152,19 +157,19 @@ class ReRouter(object):
                     if i != j and matrix[i][j] != float('inf'):
                         g.add_edge(i,j,weight=matrix[i][j])
 
-    def build_BIH(self, bw_list):# beta_list=[B, 2B/3, B/3, 0]
+    def build_BIH(self, bw_list):
         start = time.clock()
         for bw in bw_list: # [7,5,2]
            big = self._build_BIG(bw)
            self.bih.append(big)
         cost = time.clock()-start
-        print 'build_cost:',cost
+        print 'build_time:',cost
 
     def _build_BIG(self, bw):
         big = list() # the element is Graph
         g_nodes = self.g.nodes()
         for i in g_nodes:
-            is_bi_node = False  #####!!!
+            is_bi_node = False
             for bi in big:
                 bi_nodes = bi.nodes()
                 if i in bi_nodes:
@@ -173,7 +178,7 @@ class ReRouter(object):
             if not is_bi_node:
                 bi = self._get_BI(bw,i)
                 big.append(bi)
-        res = list()
+        res = list() # only return graph which has edges
         for bi in big:
             bi_edges = bi.edges()
             if len(bi_edges) > 0:
@@ -311,15 +316,6 @@ def topo_er(nodes):
     return g
 
 def topo_pl(nodes):
-    '''
-    powerlaw_cluster_graph(n, m, p)
-    m : int
-    the number of random edges to add for each new node
-    p : float,
-        Probability of adding a triangle after adding a random edge
-    :param nodes:
-    :return:
-    '''
     bws = [1,2,3,4,5,6,7,8,9]
     network = nx.powerlaw_cluster_graph(nodes,2,0.13)
     g = nx.Graph()
@@ -341,12 +337,9 @@ def topo_wax(nodes):
         g.add_edge(link[1],link[0],{'weight':bw})
     return g
 
-def main(nodes, test): # test is 1 or 2
+def main(nodes, test):
     '''
     on differ topo to test 1 or 2
-    :param nodes:
-    :param test:
-    :return:
     '''
     # ----------------random generate a topo
     g = topo_er(nodes)
@@ -358,11 +351,11 @@ def main(nodes, test): # test is 1 or 2
     # --------------store a topo to a file
     # dict_g = nx.to_dict_of_dicts(g)
     # g_json = json.dumps(dict_g)
-    # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/pl_topo_3.txt','w')
+    # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/reduce_t/pl_topo_3.txt','w')
     # file.write(g_json)
 
     # -------------------use a topo from file
-    # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/pl_topo_3.txt','r')
+    # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/reduce_t/pl_topo_3.txt','r')
     # dict = json.loads(file.read())
     # g = nx.from_dict_of_dicts(dict)
 

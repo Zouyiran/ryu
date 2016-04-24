@@ -21,7 +21,6 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
-import array
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -66,7 +65,6 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-        # print("packet_in_handler>>>>>>>>>")
         # If you hit this you might want to increase
         # the "miss_send_length" of your switch
         if ev.msg.msg_len < ev.msg.total_len:
@@ -81,51 +79,16 @@ class SimpleSwitch13(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
-        # ETH_TYPE_IP = 0x0800
-        # ETH_TYPE_ARP = 0x0806
-        # ETH_TYPE_8021Q = 0x8100
-        # ETH_TYPE_IPV6 = 0x86dd
-        # ETH_TYPE_SLOW = 0x8809
-        # ETH_TYPE_MPLS = 0x8847
-        # ETH_TYPE_8021AD = 0x88a8
-        # ETH_TYPE_LLDP = 0x88cc
-        # ETH_TYPE_8021AH = 0x88e7
-        # ETH_TYPE_IEEE802_3 = 0x05dc
-        # ETH_TYPE_CFM = 0x8902
-
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            print("***************ether_types.ETH_TYPE_LLDP***************")
             # ignore lldp packet
-            # the topology.switches.Switches can handle the LLDP packet
-            self.logger.info(" ETH_TYPE_LLDP:0x%08x", ether_types.ETH_TYPE_LLDP)
             return
-        pp = packet.Packet(array.array('B',msg.data)) # B: unsigned char 1Byte
-        for p in pp:
-            try:
-                p_name = p.protocol_name
-                if p_name == "icmp":
-                    print(p)
-                if p_name == 'arp':
-                    print(p)
-            except:
-                pass
-
-
         dst = eth.dst
         src = eth.src
 
         dpid = datapath.id
-
-        # if dpid in self.hosts_mac_to_port.keys():
-        #     if src in self.hosts_mac_to_port[dpid].keys():
-        #         print("packet_in host testing>>>","src:",src,'->',"dts:",dst)
-        #     if dst == 'ff:ff:ff:ff:ff:ff':
-        #         print('dst is :ff:ff:ff:ff:ff:ff')
-        #         print(' eth.ethertype:0x%08x' % eth.ethertype)
-
         self.mac_to_port.setdefault(dpid, {})
 
-        # self.logger.info("packet in dpid:%s src:%s dst:%s in_port:%s", dpid, src, dst, in_port)
+        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
@@ -134,12 +97,6 @@ class SimpleSwitch13(app_manager.RyuApp):
             out_port = self.mac_to_port[dpid][dst]
         else:
             out_port = ofproto.OFPP_FLOOD
-
-        for each in self.mac_to_port:
-            print("dpid:",each)
-            for i in self.mac_to_port[each]:
-                print("mac:",i,"->","port:",self.mac_to_port[each][i])
-        print(" ")
 
         actions = [parser.OFPActionOutput(out_port)]
 

@@ -16,8 +16,12 @@ from ryu.lib.packet import ether_types
 from ryu.lib import hub
 
 '''
-for linear topology:
+###For 2 chapter###
+fig 2-7
 re-active install flow entries when packet-in arrival
+----test----
+Linear topology
+ICMP
 '''
 
 class ProactiveApp(app_manager.RyuApp):
@@ -299,8 +303,7 @@ class ProactiveApp(app_manager.RyuApp):
         src = eth.src
         mac_list = ['00:00:00:00:00:01','00:00:00:00:00:02']
         if dst in mac_list and src in mac_list:
-            pass
-            # self._pre_install_flow(src,dst)
+            self._pre_install_flow(src,dst)
 
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})

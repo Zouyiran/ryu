@@ -3,14 +3,14 @@
 
 from ryu.lib.packet import ether_types
 from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
+
 from command_sender import CommandSender
 
+'''
+###reduce_t###
+--> mpls path pre-install
+'''
 class PathPreInstall(object):
-    '''
-     PathPreInstall:
-     pre install mpls path between access switches
-
-    '''
 
     def __init__(self):
         super(PathPreInstall, self).__init__()
@@ -24,17 +24,9 @@ class PathPreInstall(object):
 
     # delete old mpls_path, add new mpls_path
     def setup_mpls_path(self, pre_path_table, path_table, network_monitor):
-        '''
-
-        :param pre_path_table:
-        :param path_table:
-        :param network_monitor:
-        :return:
-        '''
-
         print("...................pre-install flow..................")
         if len(pre_path_table) == 0 and len(path_table) != 0: # initial
-            # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/path_table.txt','a')
+            # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/reduce_t/path_table.txt','a')
             # file.write(str(path_table)+'\n')
             # file.write('\n')
             # file.close()

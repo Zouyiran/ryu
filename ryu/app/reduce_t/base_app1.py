@@ -16,37 +16,32 @@ from command_sender import CommandSender
 from network_monitor import NetworkMonitor
 from route_calculator import RouteCalculator
 from flow_collector import FlowCollector
-from flow_classifier import FlowClassifier
-from path_pre_install import PathPreInstall
 
 '''
----For 2 chapter----
+###For 2 chapter###
 when packet_in then
-packet_out and install rule
-comparison for not_install_rule_app1
-
+packet_out ONLY!
+comparison for base_app2
 ----test----
 Linear topology
 iperfTCP
-
 '''
 
 class HLApp(app_manager.RyuApp):
 
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
-        'network_monitor': NetworkMonitor
+        'network_monitor': NetworkMonitor,
+        'flow_collector':FlowCollector
     }
 
     def __init__(self, *args, **kwargs):
         super(HLApp, self).__init__(*args, **kwargs)
         self.network_monitor = kwargs['network_monitor'] # context
+        self.flow_collector = kwargs['flow_collector'] #context
 
         self.commandSender = CommandSender.get_instance() # util
         self.routeCalculator = RouteCalculator.get_instance() # util
-
-        self.flowClassifier = FlowClassifier() # mechanism
-        self.pathPreInstall = PathPreInstall() # mechanism
 
         self.DISCOVER_PERIOD = 3
 
@@ -120,7 +115,7 @@ class HLApp(app_manager.RyuApp):
             src_sw = self.__get_host_location(src_ip)
             dst_sw = self.__get_host_location(dst_ip)
             if src_sw and dst_sw:# end-to-end connection
-                print('end-to-end connection')
+                print('--------------end-to-end connection--------------')
                 src_dpid = src_sw[0]
                 dst_dpid = dst_sw[0]
                 src_in_port = src_sw[1]
@@ -128,119 +123,90 @@ class HLApp(app_manager.RyuApp):
 
                 icmp_pkt = pkt.get_protocol(icmp.icmp)
                 tcp_pkt = pkt.get_protocol(tcp.tcp)
-                udp_pkt = pkt.get_protocol(udp.udp)
 
                 if isinstance(icmp_pkt,icmp.icmp):
                     print("----icmp-------")
-                    print("dpid:",dpid)
-                    if dpid == src_dpid: # packet_in
-                        if src_dpid == dst_dpid:
-                            print("src_dpid == dst_dpid")
-                            priority = OFP_DEFAULT_PRIORITY
-                            match = {
-                                    "dl_type":ether_types.ETH_TYPE_IP,
-                                    "in_port":in_port,
-                                    "nw_src":src_ip,
-                                    "nw_dst":dst_ip,
-                                    }
-                            actions = [{"type":"OUTPUT","port":dst_out_port}]
-                            if buffer_id != ofproto.OFP_NO_BUFFER:
-                                self.commandSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id, 10)
-                            else:
-                                self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 10)
-                                data = msg.data
-                                self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
-                        else:
-                            print("src_dpid != dst_dpid",src_dpid,dst_dpid)
+                    if src_dpid == dst_dpid:
+                        print("src_dpid == dst_dpid")
+                        data = msg.data
+                        self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
+                    else:
+                        print("src_dpid != dst_dpid",src_dpid,dst_dpid)
+                        if dpid == src_dpid:
                             route = self.routeCalculator.get_route(src_dpid, dst_dpid)
-                            if route:
-                                self.install_flow(route,dst_ip,src_in_port,dst_out_port)
-                                out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
-                                data = msg.data
-                                self.commandSender.packet_out(datapath, in_port, out_port, data)
+                            out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
+                        elif dpid == dst_dpid:
+                            out_port = dst_out_port
+                        else:
+                            route = self.routeCalculator.get_route(src_dpid, dst_dpid)
+                            index = 0
+                            for i in range(len(route)):
+                                if route[i] == dpid:
+                                    index = i
+                                    break
+                            out_port = self.network_monitor.links_dpid_to_port[(route[index],route[index+1])][0]
+                        data = msg.data
+                        self.commandSender.packet_out(datapath, in_port, out_port, data)
                     return
 
                 if isinstance(tcp_pkt,tcp.tcp):
                     print("------tcp-----------")
-                    src_tcp = tcp_pkt.src_port
-                    dst_tcp = tcp_pkt.dst_port
-                    if dpid == src_dpid: # packet_in
-                        if src_dpid == dst_dpid:
-                            print("src_dpid == dst_dpid")
-                            priority = OFP_DEFAULT_PRIORITY
-                            match = {
-                                "dl_type":ether_types.ETH_TYPE_IP,
-                                "nw_proto":6,
-                                "in_port":in_port,
-                                "nw_src":src_ip,
-                                "nw_dst":dst_ip,
-                                "tcp_src":src_tcp,
-                                "tcp_dst":dst_tcp
-                                    }
-                            # match = {
-                            #         "dl_type":ether_types.ETH_TYPE_IP,
-                            #         "in_port":in_port,
-                            #         "nw_src":src_ip,
-                            #         "nw_dst":dst_ip,
-                            #         }
-                            actions = [{"type":"OUTPUT","port":dst_out_port}]
-                            if buffer_id != ofproto.OFP_NO_BUFFER:
-                                self.commandSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id, 10)
-                            else:
-                                self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 10)
-                                data = msg.data
-                                self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
-                        else:
-                            print("src_dpid != dst_dpid")
+                    if src_dpid == dst_dpid:
+                        print("src_dpid == dst_dpid")
+                        data = msg.data
+                        self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
+                    else:
+                        print("src_dpid != dst_dpid")
+                        if dpid == src_dpid:
+                            print('dpid:',dpid)
                             route = self.routeCalculator.get_route(src_dpid, dst_dpid)
-                            if route:
-                                # self.install_flow(route,dst_ip,src_in_port,dst_out_port)
-                                self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
-                                data = msg.data
-                                out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
-                                self.commandSender.packet_out(datapath, in_port, out_port, data)
+                            out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
+                            print('out_port:',out_port)
+                        elif dpid == dst_dpid:
+                            print('dpid:',dpid)
+                            out_port = dst_out_port
+                            print('out_port:',out_port)
+                        else:
+                            print('dpid:',dpid)
+                            route = self.routeCalculator.get_route(src_dpid, dst_dpid)
+                            index = 0
+                            for i in range(len(route)):
+                                if route[i] == dpid:
+                                    index = i
+                                    break
+                            out_port = self.network_monitor.links_dpid_to_port[(route[index],route[index+1])][0]
+                            print('out_port:',out_port)
+                        data = msg.data
+                        self.commandSender.packet_out(datapath, in_port, out_port, data)
                     return
 
-                if isinstance(udp_pkt,udp.udp):
-                    print("----udp-------")
-                    src_udp = udp_pkt.src_port
-                    dst_udp = udp_pkt.dst_port
-                    if dpid == src_dpid:
-                        if src_dpid == dst_dpid:
-                            print("src_dpid == dst_dpid")
-                            priority = OFP_DEFAULT_PRIORITY
-                            match = {
-                                "dl_type":ether_types.ETH_TYPE_IP,
-                                "nw_proto":17,
-                                "in_port":in_port,
-                                "nw_src":src_ip,
-                                "nw_dst":dst_ip,
-                                "udp_src":src_udp,
-                                "udp_dst":dst_udp,
-                                    }
-                            # match = {
-                            #         "dl_type":ether_types.ETH_TYPE_IP,
-                            #         "in_port":in_port,
-                            #         "nw_src":src_ip,
-                            #         "nw_dst":dst_ip,
-                            #         }
-                            actions = [{"type":"OUTPUT","port":dst_out_port}]
-                            if buffer_id != ofproto.OFP_NO_BUFFER:
-                                self.commandSender.add_flow_rest_2(dpid, priority, match, actions,buffer_id, 10)
-                            else:
-                                self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 10)
-                                data = msg.data
-                                self.commandSender.packet_out(datapath, in_port, dst_out_port, data, buffer_id)
-                        else:
-                            print("src_dpid != dst_dpid")
-                            route = self.routeCalculator.get_route(src_dpid, dst_dpid)
-                            if route:
-                                # self.install_flow(route,dst_ip,src_in_port,dst_out_port)
-                                self.install_flow_udp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_udp, dst_udp)
-                                data = msg.data
-                                out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
-                                self.commandSender.packet_out(datapath, in_port, out_port, data)
-                    return
+    def __add_last(self, dpid, out_port, label):
+        match = {
+                "dl_type":ether_types.ETH_TYPE_MPLS,
+                "mpls_label":label,
+                }
+        actions = [{"type":"OUTPUT","port":out_port}]
+        self.commandSender.add_flow_rest_1(dpid, OFP_DEFAULT_PRIORITY, match, actions)
+
+    def _get_mpls_label(self,traffic):
+        for label in self.pathPreInstall.mpls_to_path.keys():
+            if self.pathPreInstall.mpls_to_path[label] == traffic:
+                return label
+        return None
+    def __add_mpls(self,  pkt_old, label, src_mac, dst_mac):
+        pkt_new = packet.Packet()
+        mpls_proto = mpls.mpls(label=label) # label:20bit(0~1048576-1), exp(QoS):3bit, bsb:1bit, ttl:8bit
+        pkt_new.add_protocol(ethernet.ethernet(dst=dst_mac, src=src_mac,ethertype=ether_types.ETH_TYPE_MPLS))
+        pkt_new.add_protocol(mpls_proto)
+        for i in range(1,len(pkt_old)):#[ethernet, ipv4, tcp,..]
+            pkt_new.add_protocol(pkt_old[i])
+        return pkt_new
+    def __remove_mpls(self,pkt_old, src_mac, dst_mac):
+        pkt_new = packet.Packet()
+        pkt_new.add_protocol(ethernet.ethernet(dst=dst_mac, src=src_mac,ethertype=ether_types.ETH_TYPE_IP))
+        for i in range(2,len(pkt_old)):#[ethernet, mpls, ipv4, tcp,..]
+            pkt_new.add_protocol(pkt_old[i])
+        return pkt_new
 
     def __register_access_info(self, dpid, ip, port):
         if port in self.network_monitor.dpids_to_access_port[dpid]: # {1: [4], 2: [], 3: [], 4: [2, 3], 5: [2, 3], 6: [2, 3]}
@@ -276,7 +242,7 @@ class HLApp(app_manager.RyuApp):
                     "nw_dst":dst_ip,
                     }
             actions = [{"type":"OUTPUT","port":out_port}]
-            self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 10)
+            self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 100)
 
     #4 layer
     def install_flow_tcp(self, traffic, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp):
@@ -302,8 +268,8 @@ class HLApp(app_manager.RyuApp):
                         "in_port":in_port,
                         "nw_src":src_ip,
                         "nw_dst":dst_ip,
-                        "tcp_src":src_tcp,
-                        "tcp_dst":dst_tcp
+                        "tp_src":src_tcp,
+                        "tp_dst":dst_tcp
                         }
                 actions = [{"type":"OUTPUT","port":out_port}]
                 self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 10)
@@ -328,12 +294,12 @@ class HLApp(app_manager.RyuApp):
                     out_port = self.network_monitor.links_dpid_to_port[(traffic[j],traffic[j+1])][0]
                 match = {
                         "dl_type":ether_types.ETH_TYPE_IP,
-                        "nw_proto":17,
+                        "nw_proto":6,
                         "in_port":in_port,
                         "nw_src":src_ip,
                         "nw_dst":dst_ip,
-                        "udp_src":src_tcp,
-                        "udp_dst":dst_tcp
+                        "up_src":src_tcp,
+                        "up_dst":dst_tcp
                         }
                 actions = [{"type":"OUTPUT","port":out_port}]
                 self.commandSender.add_flow_rest_1(dpid, priority, match, actions, 10)

@@ -3,6 +3,13 @@
 
 import numpy as np
 
+'''
+###reduce_t###
+--> flow classifier
+1) src-dst flow --> create svm sample
+2) elephant flow
+'''
+
 class FlowClassifier(object):
     def __init__(self):
         super(FlowClassifier, self).__init__()
@@ -57,10 +64,8 @@ class FlowClassifier(object):
 
     def create_sample(self, dpid_to_flow):
         '''
-        # {'nw_dst': u'10.0.0.2', 'byte_count': 54, 'duration_sec': 2,
+        {'nw_dst': u'10.0.0.2', 'byte_count': 54, 'duration_sec': 2,
         'packet_count': 1, 'idle_timeout': 10, 'nw_src': u'10.0.0.10'},
-        :param dpid_to_flow:
-        :return:
         '''
         active_sample = dict()
         for dpid in dpid_to_flow:
@@ -87,40 +92,3 @@ class FlowClassifier(object):
     def get_target(self,target):
         target_array = np.asarray(target)
         return target_array
-
-#     def select_module(self, sample, target, kernel, scoring=None, k=10):
-#         scores = list()
-#         scores_std = list()
-#         # sample_num = len(sample)
-#         # kflod = cross_validation.KFold(sample_num, n_folds=k)
-#         if kernel == "linear":
-#             svc = svm.SVC(kernel="linear")
-#             c_list = [1e-1, 1, 1e1]
-#             for c in c_list:
-#                 svc.C = c
-#                 this_scores = cross_validation.cross_val_score(svc, sample, target, scoring=scoring, cv=k)
-#                 scores.append(np.mean(this_scores))
-#                 scores_std.append(np.std(this_scores))
-#         if kernel == "rbf":
-#             c_list = [1e-1, 1, 1e1]
-#             gamma_list = [1e-1, 1, 1e1]
-#             for c in c_list:
-#                 for gamma in gamma_list:
-#                     svc = svm.SVC(kernel="rbf", C=c, gamma=gamma)
-#                     this_scores = cross_validation.cross_val_score(svc, sample, target, scoring=scoring, cv=k)
-#                     scores.append(np.mean(this_scores))
-#                     scores_std.append(np.std(this_scores))
-#         return scores, scores_std
-#
-if __name__ == "__main__":
-    classify = FlowClassifier()
-    num = len(classify.data)
-    count = 0
-    for i in range(num):
-        if classify.target[i] == 1:
-            count += 1
-    print 'count 1:',count
-
-
-
-

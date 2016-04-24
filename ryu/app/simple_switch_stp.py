@@ -18,14 +18,14 @@ import struct
 from ryu.base import app_manager
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_0, ofproto_v1_3
+from ryu.ofproto import ofproto_v1_0
 from ryu.lib import dpid as dpid_lib
 from ryu.lib import stplib
 from ryu.lib.mac import haddr_to_str
 
 
 class SimpleSwitchStp(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION, ofproto_v1_3.OFP_VERSION]
+    OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
     _CONTEXTS = {'stplib': stplib.Stp}
 
     def __init__(self, *args, **kwargs):
@@ -53,10 +53,6 @@ class SimpleSwitchStp(app_manager.RyuApp):
         wildcards &= ~ofproto_v1_0.OFPFW_IN_PORT
         wildcards &= ~ofproto_v1_0.OFPFW_DL_DST
 
-    # def __init__(self, wildcards=None, in_port=None, dl_src=None, dl_dst=None,
-    #              dl_vlan=None, dl_vlan_pcp=None, dl_type=None, nw_tos=None,
-    #              nw_proto=None, nw_src=None, nw_dst=None,
-    #              tp_src=None, tp_dst=None, nw_src_mask=32, nw_dst_mask=32):
         match = datapath.ofproto_parser.OFPMatch(
             wildcards, in_port, 0, dst,
             0, 0, 0, 0, 0, 0, 0, 0, 0)

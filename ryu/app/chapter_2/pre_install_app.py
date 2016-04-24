@@ -16,10 +16,13 @@ from ryu.lib.packet import ether_types
 from ryu.lib import hub
 
 '''
-for linear topology:
-install exact flow entries for each connections between src-dst pair
+###For 2 chapter###
+fig 2-8
+pre-install flow entries for end-to-end hosts('h1' and 'h2')
+----test----
+Linear topology
+ICMP
 '''
-
 class ProactiveApp(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -104,7 +107,7 @@ class ProactiveApp(app_manager.RyuApp):
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
                 self.path_table = self._get_path_table(self.adjacency_matrix)
-                # self.pre_install_flow()
+                self.pre_install_flow()
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
@@ -272,34 +275,31 @@ class ProactiveApp(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+            # ignore lldp packet
+            return
+        dst = eth.dst
+        src = eth.src
         ar = pkt.get_protocol(arp.arp)
         ic = pkt.get_protocol(icmp.icmp)
 
         if isinstance(ar, arp.arp):
             print("-----arp packet------")
             print("dpid:",datapath.id)
-            print(pkt)
-            for each in self.mac_to_port:
-                print "dpid:",each
-                for a in self.mac_to_port[each]:
-                    print "mac:",a,"->","port:",self.mac_to_port[each][a]
+        #     print("dpid:",datapath.id)
+        #     print(pkt)
+        #     for each in self.mac_to_port:
+        #         print "dpid:",each
+        #         for a in self.mac_to_port[each]:
+        #             print "mac:",a,"->","port:",self.mac_to_port[each][a]
         if isinstance(ic, icmp.icmp):
             print("-----icmp packet------")
             print("dpid:",datapath.id)
-            print(pkt)
-            for each in self.mac_to_port:
-                print "dpid:",each
-                for a in self.mac_to_port[each]:
-                    print "mac:",a,"->","port:",self.mac_to_port[each][a]
-
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            # ignore lldp packet
-            return
-        dst = eth.dst
-        src = eth.src
-        mac_list = ['00:00:00:00:00:01','00:00:00:00:00:02']
-        if dst in mac_list and src in mac_list:
-            self._pre_install_flow(src,dst)
+        #     print(pkt)
+        #     for each in self.mac_to_port:
+        #         print "dpid:",each
+        #         for a in self.mac_to_port[each]:
+        #             print "mac:",a,"->","port:",self.mac_to_port[each][a]
 
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})

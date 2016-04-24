@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import networkx as nx
 import copy
 
@@ -16,9 +17,14 @@ from ryu.lib.packet import ether_types
 from ryu.lib import hub
 
 '''
-for linear topology:
-pre-install flow entries for end-to-end hosts('h1' and 'h2')
+###For 2 chapter###
+fig 2-6
+not install flow entries when packet-in arrival
+----test----
+Linear topology
+ICMP
 '''
+
 class ProactiveApp(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -79,7 +85,7 @@ class ProactiveApp(app_manager.RyuApp):
                                           ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None, idle_timeout=0):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
@@ -88,10 +94,10 @@ class ProactiveApp(app_manager.RyuApp):
         if buffer_id:
             mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
                                     priority=priority, match=match,
-                                    instructions=inst)
+                                    instructions=inst,idle_timeout=idle_timeout)
         else:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                    match=match, instructions=inst)
+                                    match=match, instructions=inst,idle_timeout=idle_timeout)
         datapath.send_msg(mod)
 
     def pre_install(self):
@@ -103,7 +109,7 @@ class ProactiveApp(app_manager.RyuApp):
             if self.pre_adjacency_matrix != self.adjacency_matrix:
                 self.logger.info('***********discover_topology thread: TOPO  UPDATE***********')
                 self.path_table = self._get_path_table(self.adjacency_matrix)
-                self.pre_install_flow()
+                # self.pre_install_flow()
 
     def _update_topology(self):
         switch_list = get_all_switch(self)
@@ -230,7 +236,7 @@ class ProactiveApp(app_manager.RyuApp):
             priority = OFP_DEFAULT_PRIORITY
             match = parser.OFPMatch(in_port=host1_port,eth_dst=host2) # , eth_dst=host2
             actions = [parser.OFPActionOutput(host2_port)]
-            self.add_flow(datapath, priority, match, actions)
+            self.add_flow(datapath, priority, match, actions,idle_timeout=5)
         else:
             traffic = self.path_table[(host1_dpid,host2_dpid)][0]
             length = len(traffic)
@@ -242,18 +248,18 @@ class ProactiveApp(app_manager.RyuApp):
                     match = parser.OFPMatch(in_port=host1_port,eth_dst=host2) # , eth_dst=host2
                     out_port = self.links_dpid_to_port[(traffic[i],traffic[i+1])][0]
                     actions = [parser.OFPActionOutput(out_port)]
-                    self.add_flow(datapath, priority, match, actions)
+                    self.add_flow(datapath, priority, match, actions, idle_timeout=5)
                 elif i == length -1:
                     in_port = self.links_dpid_to_port[(traffic[i-1],traffic[i])][1]
                     match = parser.OFPMatch(in_port=in_port,eth_dst=host2) # , eth_dst=host2
                     actions = [parser.OFPActionOutput(host2_port)]
-                    self.add_flow(datapath, priority, match, actions)
+                    self.add_flow(datapath, priority, match, actions, idle_timeout=5)
                 else:
                     in_port = self.links_dpid_to_port[(traffic[i-1],traffic[i])][1]
                     out_port = self.links_dpid_to_port[(traffic[i],traffic[i+1])][0]
                     match = parser.OFPMatch(in_port=in_port,eth_dst=host2) # , eth_dst=host2
                     actions = [parser.OFPActionOutput(out_port)]
-                    self.add_flow(datapath, priority, match, actions)
+                    self.add_flow(datapath, priority, match, actions, idle_timeout=5)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -271,31 +277,35 @@ class ProactiveApp(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            # ignore lldp packet
-            return
-        dst = eth.dst
-        src = eth.src
         ar = pkt.get_protocol(arp.arp)
         ic = pkt.get_protocol(icmp.icmp)
 
         if isinstance(ar, arp.arp):
             print("-----arp packet------")
             print("dpid:",datapath.id)
-        #     print("dpid:",datapath.id)
-        #     print(pkt)
-        #     for each in self.mac_to_port:
-        #         print "dpid:",each
-        #         for a in self.mac_to_port[each]:
-        #             print "mac:",a,"->","port:",self.mac_to_port[each][a]
+            # print(pkt)
+            # for each in self.mac_to_port:
+            #     print "dpid:",each
+            #     for a in self.mac_to_port[each]:
+            #         print "mac:",a,"->","port:",self.mac_to_port[each][a]
         if isinstance(ic, icmp.icmp):
             print("-----icmp packet------")
             print("dpid:",datapath.id)
-        #     print(pkt)
-        #     for each in self.mac_to_port:
-        #         print "dpid:",each
-        #         for a in self.mac_to_port[each]:
-        #             print "mac:",a,"->","port:",self.mac_to_port[each][a]
+            # print(pkt)
+            # for each in self.mac_to_port:
+            #     print "dpid:",each
+            #     for a in self.mac_to_port[each]:
+            #         print "mac:",a,"->","port:",self.mac_to_port[each][a]
+
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+            # ignore lldp packet
+            return
+        dst = eth.dst
+        src = eth.src
+        mac_list = ['00:00:00:00:00:01','00:00:00:00:00:02']
+        if dst in mac_list and src in mac_list:
+            pass
+            # self._pre_install_flow(src,dst)
 
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})

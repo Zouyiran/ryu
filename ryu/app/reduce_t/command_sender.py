@@ -3,6 +3,13 @@
 
 import requests
 
+'''
+###reduce_t###
+--> commander sender
+1) call built-in function
+2) rest api
+'''
+
 class CommandSender(object):
 
     # singletone

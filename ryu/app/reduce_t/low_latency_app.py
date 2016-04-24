@@ -19,10 +19,19 @@ from flow_collector import FlowCollector
 from flow_classifier import FlowClassifier
 from path_pre_install import PathPreInstall
 
+'''
+###reduce_t###
+--> hybrid and low latency app
+1) network_monitor_thread --> mpls path setup / topology update
+2) flow_collector_thread --> flow classifier --> active pair / elephant flow
+4) call commandSender and routeCalculator
+3) packet in handler
+----test----
+data center topology
+'''
+
 class HLApp(app_manager.RyuApp):
-    '''
-    hybrid and low latency app
-    '''
+
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
         'network_monitor': NetworkMonitor,
@@ -60,7 +69,7 @@ class HLApp(app_manager.RyuApp):
                 count = res[str(dpid)][0]['flow_count']
                 count = int(count)
                 total += count
-            file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/flow_count.txt','a')
+            file = open('/home/zouyiran/bs/myself/ryu/ryu/app/reduce_t/flow_count.txt','a')
             file.write('flow_count:'+str(total)+'\n')
             file.close()
 
@@ -96,7 +105,7 @@ class HLApp(app_manager.RyuApp):
                     stats_flow = self.flow_collector.request_stats_flow(dpid)[str(dpid)]
                     self.flow_collector.dpid_to_flow[dpid] = self.flow_collector.parse_stats_flow(stats_flow)
             self.flowClassifier.active_sample = self.flowClassifier.create_sample(self.flow_collector.dpid_to_flow)
-            file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/flow_classify.txt','a')
+            file = open('/home/zouyiran/bs/myself/ryu/ryu/app/reduce_t/flow_classify.txt','a')
             file.write('\n'+'-------------------flow--classify-------------'+'\n')
             for i in self.flowClassifier.active_sample:
                 file.write(str(i)+'\n')
@@ -131,7 +140,7 @@ class HLApp(app_manager.RyuApp):
             return
 
         arp_pkt = pkt.get_protocol(arp.arp)
-        if isinstance(arp_pkt, arp.arp): #  arp request and reply
+        if isinstance(arp_pkt, arp.arp):
             print("----arp-------")
             arp_src_ip = arp_pkt.src_ip
             arp_dst_ip = arp_pkt.dst_ip
@@ -206,12 +215,12 @@ class HLApp(app_manager.RyuApp):
                             path = self.routeCalculator.get_path(src_dpid, dst_dpid) # for 1st packet
                             route = self.routeCalculator.get_route(src_dpid, dst_dpid) # for follow-up packet
                             if route:
-                                if len(path) <= 4:
+                                if len(path) <= 4: # 2
                                     self.install_flow(route,dst_ip,src_in_port,dst_out_port)
                                     out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
                                     data = msg.data
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
-                                elif len(path) > 4:
+                                elif len(path) > 4: # 2
                                     print("pack mpls dpid on traffic[0]:",dpid)
                                     out_port = self.network_monitor.links_dpid_to_port[(path[0],path[1])][0]
                                     label = self._get_mpls_label(path)
@@ -234,7 +243,7 @@ class HLApp(app_manager.RyuApp):
                     src_tcp = tcp_pkt.src_port
                     dst_tcp = tcp_pkt.dst_port
                     if dpid == src_dpid: # packet_in
-                        # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/test_reduce_t/fattree_record.txt','a')
+                        # file = open('/home/zouyiran/bs/myself/ryu/ryu/app/reduce_t/fattree_record.txt','a')
                         if src_dpid == dst_dpid:
                             print("src_dpid == dst_dpid")
                             # file.write('----->'+'host_src:'+str(src_ip)+'->'+'host_dst:'+str(dst_ip)+'--'+
@@ -265,12 +274,12 @@ class HLApp(app_manager.RyuApp):
                             # file.write('traffic'+str(path)+'\n')
                             # file.write('route'+str(route)+'\n')
                             if route:
-                                if len(path) <= 4: # 4
+                                if len(path) <= 4: # 2
                                     self.install_flow_tcp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_tcp, dst_tcp)
                                     data = msg.data
                                     out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
-                                elif len(path) > 4: # 4
+                                elif len(path) > 4: # 2
                                     print("pack mpls dpid on traffic[0]:",dpid)
                                     out_port = self.network_monitor.links_dpid_to_port[(path[0],path[1])][0]
                                     label = self._get_mpls_label(path)
@@ -318,12 +327,12 @@ class HLApp(app_manager.RyuApp):
                             path = self.routeCalculator.get_path(src_dpid, dst_dpid) # for 1st packet
                             route = self.routeCalculator.get_route(src_dpid, dst_dpid) # for follow-up packet
                             if route:
-                                if len(path) <= 4:
+                                if len(path) <= 4: # 2
                                     self.install_flow_udp(route, src_ip, dst_ip, src_in_port, dst_out_port, src_udp, dst_udp)
                                     data = msg.data
                                     out_port = self.network_monitor.links_dpid_to_port[(route[0],route[1])][0]
                                     self.commandSender.packet_out(datapath, in_port, out_port, data)
-                                elif len(path) > 4: # 4
+                                elif len(path) > 4: # 2
                                     print("pack mpls dpid on traffic[0]:",dpid)
                                     out_port = self.network_monitor.links_dpid_to_port[(path[0],path[1])][0]
                                     label = self._get_mpls_label(path)

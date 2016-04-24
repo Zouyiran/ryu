@@ -4,27 +4,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
-
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.datasets import load_iris
 from sklearn.cross_validation import StratifiedShuffleSplit
 from sklearn.grid_search import GridSearchCV
 
-# from sklearn.model_selection import
-
-'''
-SVC:
-    def __init__(self, C=1.0, kernel='rbf', degree=3, gamma='auto',
-                 coef0=0.0, shrinking=True, probability=False,
-                 tol=1e-3, cache_size=200, class_weight=None,
-                 verbose=False, max_iter=-1, decision_function_shape=None,
-                 random_state=None)
-'''
-
 # Utility function to move the midpoint of a colormap to be around
 # the values of interest.
-
 class MidpointNormalize(Normalize):
 
     def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
@@ -48,7 +35,8 @@ y = iris.target
 # features in X and sub-sample the dataset to keep only 2 classes and
 # make it a binary classification problem.
 
-X_2d = X[:, :2]
+X_2d = np.column_stack((X[:,0:1],X[:,2:3]))
+# X_2d = X[:, :2]
 X_2d = X_2d[y > 0]
 y_2d = y[y > 0]
 y_2d -= 1
@@ -68,21 +56,21 @@ X_2d = scaler.fit_transform(X_2d)
 # 10 is often helpful. Using a basis of 2, a finer
 # tuning can be achieved but at a much higher cost.
 
-C_range = np.logspace(-2, 10, 13)
-gamma_range = np.logspace(-9, 3, 13)
-param_grid = dict(gamma=gamma_range, C=C_range)
-cv = StratifiedShuffleSplit(y, n_iter=5, test_size=0.2, random_state=42)
-grid = GridSearchCV(SVC(), param_grid=param_grid, cv=cv)
-grid.fit(X, y)
-
-print("The best parameters are %s with a score of %0.2f"
-      % (grid.best_params_, grid.best_score_))
+# C_range = np.logspace(-2, 10, 13)
+# gamma_range = np.logspace(-9, 3, 13)
+# param_grid = dict(gamma=gamma_range, C=C_range)
+# cv = StratifiedShuffleSplit(y, n_iter=5, test_size=0.2, random_state=42)
+# grid = GridSearchCV(SVC(), param_grid=param_grid, cv=cv)
+# grid.fit(X, y)
+#
+# print("The best parameters are %s with a score of %0.2f"
+#       % (grid.best_params_, grid.best_score_))
 
 # Now we need to fit a classifier for all parameters in the 2d version
 # (we use a smaller set of parameters here because it takes a while to train)
 
-C_2d_range = [1e-2, 1, 1e2]
-gamma_2d_range = [1e-1, 1, 1e1]
+C_2d_range = [1]
+gamma_2d_range = [0.01,0.1, 1, 10, 100]
 classifiers = []
 for C in C_2d_range:
     for gamma in gamma_2d_range:
@@ -95,7 +83,7 @@ for C in C_2d_range:
 #
 # draw visualization of parameter effects
 
-plt.figure(figsize=(8, 6))
+# plt.figure(figsize=(8, 6))
 xx, yy = np.meshgrid(np.linspace(-3, 3, 200), np.linspace(-3, 3, 200))
 for (k, (C, gamma, clf)) in enumerate(classifiers):
     # evaluate decision function in a grid
@@ -104,12 +92,12 @@ for (k, (C, gamma, clf)) in enumerate(classifiers):
 
     # visualize decision function for these parameters
     plt.subplot(len(C_2d_range), len(gamma_2d_range), k + 1)
-    plt.title("gamma=10^%d, C=10^%d" % (np.log10(gamma), np.log10(C)),
-              size='large')
+    plt.title("gamma="+str(gamma),
+              size='14')
 
     # visualize parameter's effect on decision function
-    plt.pcolormesh(xx, yy, -Z, cmap=plt.cm.gray)
-    plt.scatter(X_2d[:, 0], X_2d[:, 1], c=y_2d[::-1],edgecolors='black',s=60, cmap=plt.cm.gray)
+    plt.pcolormesh(xx, yy, -Z, cmap=plt.cm.RdBu)
+    plt.scatter(X_2d[:, 0], X_2d[:, 1], c=y_2d,edgecolors='black',s=60, cmap=plt.cm.RdBu_r)
     plt.xticks(())
     plt.yticks(())
     plt.axis('tight')
@@ -117,8 +105,8 @@ for (k, (C, gamma, clf)) in enumerate(classifiers):
 # plot the scores of the grid
 # grid_scores_ contains parameter settings and scores
 # We extract just the scores
-scores = [x[1] for x in grid.grid_scores_]
-scores = np.array(scores).reshape(len(C_range), len(gamma_range))
+# scores = [x[1] for x in grid.grid_scores_]
+# scores = np.array(scores).reshape(len(C_range), len(gamma_range))
 
 # Draw heatmap of the validation accuracy as a function of gamma and C
 #
@@ -129,13 +117,13 @@ scores = np.array(scores).reshape(len(C_range), len(gamma_range))
 # interesting range while not brutally collapsing all the low score values to
 # the same color.
 
-plt.figure(figsize=(8, 6))
-plt.subplots_adjust(left=.2, right=0.95, bottom=0.15, top=0.95)
-plt.imshow(scores, interpolation='nearest', cmap=plt.cm.gray,
-           norm=MidpointNormalize(vmin=0.2, midpoint=0.92))
-plt.xlabel('gamma',fontsize=16)
-plt.ylabel('C',fontsize=16)
-plt.colorbar()
-plt.xticks(np.arange(len(gamma_range)), gamma_range, rotation=45,fontsize=16)
-plt.yticks(np.arange(len(C_range)), C_range,fontsize=16)
+# plt.figure(figsize=(8, 6))
+# plt.subplots_adjust(left=.2, right=0.95, bottom=0.15, top=0.95)
+# plt.imshow(scores, interpolation='nearest', cmap=plt.cm.gray,
+#            norm=MidpointNormalize(vmin=0.2, midpoint=0.92))
+# plt.xlabel('gamma',fontsize=16)
+# plt.ylabel('C',fontsize=16)
+# plt.colorbar()
+# plt.xticks(np.arange(len(gamma_range)), gamma_range, rotation=45,fontsize=16)
+# plt.yticks(np.arange(len(C_range)), C_range,fontsize=16)
 plt.show()

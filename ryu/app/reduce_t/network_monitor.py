@@ -1,32 +1,26 @@
 # -*- coding: utf-8 -*-
 
-import copy
 import networkx as nx
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.lib import hub
-from ryu.lib.packet import packet, ethernet, arp, ether_types
 from ryu.ofproto import ofproto_v1_3
-from ryu.ofproto.ofproto_v1_3 import  OFP_DEFAULT_PRIORITY
-from ryu.topology.api import get_all_switch, get_all_link, get_all_host
+from ryu.topology.api import get_all_switch, get_all_link
 
-from command_sender import CommandSender
+'''
+###reduce_t###
+--> network topology monitor
+'''
 
 class NetworkMonitor(app_manager.RyuApp):
-    '''
-    topo_aware thread aware the topology --then--> generate adjacency_matrix
-    according to adjacency_matrix --calculate--> path_table ( only find paths between edge switches)
-    if path_table changed --then-->  pre-install(add or delete) mpls flow entries
-    '''
+
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super(NetworkMonitor, self).__init__(*args, **kwargs)
         self.name = 'NetworkMonitor'
-        # self.commandSender = CommandSender.get_instance()
 
         # {dpid:{port:mac,port:mac,...},dpid:{port:mac,port:mac,...},...} only switches'mac
         self.dpids_port_to_mac = dict()
@@ -67,18 +61,6 @@ class NetworkMonitor(app_manager.RyuApp):
             if datapath.id in self.dpid_to_dp:
                 self.logger.info('un register datapath: %04x', datapath.id)
                 del self.dpid_to_dp[datapath.id]
-
-    # #unused
-    # def _install_arp_entry(self):
-    #     for dpid in self.dpids_to_access_port:
-    #         if len(self.dpids_to_access_port[dpid]) == 0:# edge switch
-    #             datapath = self.dpid_to_dp[dpid]
-    #             parser = datapath.ofproto_parser
-    #             ofproto = datapath.ofproto
-    #             # add arp flood entry
-    #             match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_ARP, eth_dst='00:00:00:00:00:00')
-    #             actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-    #             self.commandSender.add_flow(datapath, 0, match, actions)
 
     def update_topology(self):
         switch_list = get_all_switch(self)

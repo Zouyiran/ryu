@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 import logging
 import os
 import random
@@ -12,6 +13,13 @@ from mininet.topo import Topo
 '''
 linear topology with 2 hosts
 '''
+
+class CustomSwitch(OVSSwitch):
+
+    def __init__(self, *args, **kwargs):
+        super(CustomSwitch, self).__init__(*args, **kwargs)
+        self.datapath = 'userspace'
+        self.protocols = 'OpenFlow13'
 
 class CustomTopo(Topo):
 
@@ -57,18 +65,8 @@ class CustomTopo(Topo):
                 delay = random.randint(1,1)
                 self.addLink(switches[count],switches[count+1],delay=str(delay)+"ms",bw=1000) #,delay=str(delay)+"ms"
 
-
-class CustomSwitch(OVSSwitch):
-
-    def __init__(self, *args, **kwargs):
-        super(CustomSwitch, self).__init__(*args, **kwargs)
-        self.datapath = 'userspace'
-        self.protocols = 'OpenFlow13'
-
-
 CONTROLLER_IP = "127.0.0.1"
 CONTROLLER_PORT = 6633
-
 
 def main(n_switches):
     topo = CustomTopo(n_switches)

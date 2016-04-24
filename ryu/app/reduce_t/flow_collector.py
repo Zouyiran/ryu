@@ -6,6 +6,11 @@ from ryu.ofproto import ofproto_v1_3
 
 from command_sender import CommandSender
 
+'''
+###reduce_t###
+--> flow collector
+1) call rest_api and parse json
+'''
 
 class FlowCollector(app_manager.RyuApp):
     '''
@@ -24,9 +29,8 @@ class FlowCollector(app_manager.RyuApp):
         #  dpid:[{},{},{]...],...}
         self.dpid_to_flow = dict()
 
-    # not used
     def request_stats_switches(self):
-        res = self.flowSender.get_stats_switches() # Response
+        res = self.flowSender.get_stats_switches()
         return res.json() #list
 
     def request_stats_flow(self, dpid):
@@ -48,6 +52,7 @@ class FlowCollector(app_manager.RyuApp):
                 flow_list.append(flow)
         return flow_list
 
+#---------------------Print_to_debug------------------------
     def print_stats(self):
         for each_dpid in self.dpid_to_flow:
             print("----------print_flow_collect_stats--------------")

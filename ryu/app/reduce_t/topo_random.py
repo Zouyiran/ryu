@@ -9,6 +9,12 @@ from mininet.link import TCLink
 from mininet.node import RemoteController,Host
 from mininet.cli import CLI
 
+'''
+random topology:
+power-law
+fat-tree
+waxman
+'''
 
 class CustomSwitch(OVSSwitch):
 
@@ -27,7 +33,7 @@ def generate_topo(n):
     fnss.set_weights_constant(topo,1)
     fnss.set_delays_constant(topo, 1, 'ms')
     fnss.set_capacities_edge_betweenness(topo,[100,500,1000],'Mbps')
-    fnss.write_topology(topo,'topo_pl.xml')
+    fnss.write_topology(topo,'topo_pl_50.xml')
 
 def plot_topo(topo, topo_type):
     labels = dict()
@@ -98,7 +104,7 @@ def add_hosts_for_pl(topo, mn_topo):
 def main(n):
     # generate_topo(n)
     topo = fnss.read_topology('topo_'+'ft'+'.xml') # return fnss.Topology
-    # plot_topo(topo,'pl')
+    # plot_topo(topo,'ft')
     # addition_for_pl(topo)
     mn_topo = fnss.to_mininet(topo,relabel_nodes=True)
     # add_hosts_for_pl(topo,mn_topo)

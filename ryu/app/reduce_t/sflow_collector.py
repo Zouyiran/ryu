@@ -8,13 +8,14 @@ from ryu.base import app_manager
 from ryu.lib import hub
 from ryu.lib.xflow import sflow
 
+'''
+sFlow demo, found in tech website
+'''
 
 FLAGS = gflags.FLAGS
 gflags.DEFINE_string('sflow_listen_host', '', 'sflow listen host')
 gflags.DEFINE_integer('sflow_listen_port', 6343, 'sflow listen port')
-
 BUFSIZE = 65535
-
 
 class sFlowCollector(app_manager.RyuApp):
      def __init__(self):
