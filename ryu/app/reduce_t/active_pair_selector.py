@@ -37,8 +37,8 @@ class ActivePairSelector(object):
         gamma_range = np.logspace(-9, 3, 13)
 
         param_grid_rbf = dict(gamma=gamma_range, C=C_range)
-        # cv = StratifiedKFold(target,n_folds=3,shuffle=True,random_state=42)
-        # cv = ShuffleSplit(len(target),n_iter=3,test_size=0.1,random_state=42)
+        # cv = StratifiedKFold(target,n_folds=5,shuffle=True,random_state=42)
+        # cv = ShuffleSplit(len(target),n_iter=5,test_size=0.1,random_state=42)
         cv = StratifiedShuffleSplit(target, n_iter=5, test_size=0.1, random_state=42)
         grid_rbf = GridSearchCV(SVC(), param_grid=param_grid_rbf, cv=cv)
         grid_rbf.fit(data, target)

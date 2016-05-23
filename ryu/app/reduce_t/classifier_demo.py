@@ -70,7 +70,7 @@ X_2d = scaler.fit_transform(X_2d)
 # (we use a smaller set of parameters here because it takes a while to train)
 
 C_2d_range = [1]
-gamma_2d_range = [0.01,0.1, 1, 10, 100]
+gamma_2d_range = [0.001,0.01,0.1, 1, 10, 100,1000]
 classifiers = []
 for C in C_2d_range:
     for gamma in gamma_2d_range:
@@ -93,11 +93,11 @@ for (k, (C, gamma, clf)) in enumerate(classifiers):
     # visualize decision function for these parameters
     plt.subplot(len(C_2d_range), len(gamma_2d_range), k + 1)
     plt.title("gamma="+str(gamma),
-              size='14')
+              size='18')
 
     # visualize parameter's effect on decision function
-    plt.pcolormesh(xx, yy, -Z, cmap=plt.cm.RdBu)
-    plt.scatter(X_2d[:, 0], X_2d[:, 1], c=y_2d,edgecolors='black',s=60, cmap=plt.cm.RdBu_r)
+    plt.pcolormesh(xx, yy, -Z, cmap=plt.cm.coolwarm)
+    plt.scatter(X_2d[:, 0], X_2d[:, 1], c=y_2d,edgecolors='black',s=60, cmap=plt.cm.coolwarm_r)
     plt.xticks(())
     plt.yticks(())
     plt.axis('tight')

@@ -18,6 +18,8 @@ from route_calculator import RouteCalculator
 from flow_collector import FlowCollector
 from flow_classifier import FlowClassifier
 from path_pre_install import PathPreInstall
+from active_pair_selector import ActivePairSelector
+from rerouter import ReRouter
 
 '''
 ###reduce_t###
@@ -40,25 +42,30 @@ class HLApp(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(HLApp, self).__init__(*args, **kwargs)
-        self.network_monitor = kwargs['network_monitor'] # context
-        self.flow_collector = kwargs['flow_collector'] #context
 
-        self.commandSender = CommandSender.get_instance() # util
-        self.routeCalculator = RouteCalculator.get_instance() # util
+        self.commandSender = CommandSender.get_instance()
 
-        self.flowClassifier = FlowClassifier() # mechanism
-        self.pathPreInstall = PathPreInstall() # mechanism
+        self.flow_collector = kwargs['flow_collector']
+
+        self.network_monitor = kwargs['network_monitor']
+
+        self.flowClassifier = FlowClassifier.get_instance()
+
+        self.routeCalculator = RouteCalculator.get_instance()
+
+        self.pathPreInstall = PathPreInstall()
+        self.activePairSelector = ActivePairSelector()
+        self.rerouter = None
 
         self.DISCOVER_PERIOD = 5
         self.COLLECTOR_PERIOD = 5
         self.FLOW_COUNT = 1
+        self.TCP_IDLE_TIME = 10
+        self.ICMP_IDLE_TIME = 60
 
         self.network_monitor_thread = hub.spawn(self._monitor)
         self.flow_collector_thread = hub.spawn(self._collector)
         # hub.spawn(self._flow_count)
-
-        self.TCP_IDLE_TIME = 10
-        self.ICMP_IDLE_TIME = 60
 
     def _flow_count(self):
         while True:
